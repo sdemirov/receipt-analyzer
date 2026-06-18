@@ -1,0 +1,12 @@
+# keep the build context small & the image clean
+venv/
+web/node_modules/
+web/dist/
+**/__pycache__/
+*.pyc
+.git/
+.gitignore
+.playwright-mcp/
+docs/
+CLAUDE.md
+data/unparsed_lines.log

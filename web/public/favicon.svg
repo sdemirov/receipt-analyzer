@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Digital Receipts Analyzer">
+  <rect width="64" height="64" rx="14" fill="#3d5a80"/>
+  <!-- receipt with a torn bottom edge -->
+  <path d="M16 12 h32 a2 2 0 0 1 2 2 v38 l-4.5 -3.2 -4.5 3.2 -4.5 -3.2 -4.5 3.2 -4.5 -3.2 -4.5 3.2 -4.5 -3.2 -4.5 3.2 V14 a2 2 0 0 1 2 -2 z" fill="#ffffff"/>
+  <!-- text lines -->
+  <rect x="21" y="19" width="22" height="3" rx="1.5" fill="#3d5a80" opacity="0.35"/>
+  <rect x="21" y="26" width="15" height="3" rx="1.5" fill="#3d5a80" opacity="0.35"/>
+  <!-- price trend going up -->
+  <polyline points="21,43 28,36 35,39 43,29" fill="none" stroke="#0a9d58"
+            stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"/>
+  <circle cx="43" cy="29" r="2.4" fill="#0a9d58"/>
+</svg>

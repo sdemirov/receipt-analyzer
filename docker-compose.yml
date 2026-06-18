@@ -1,0 +1,19 @@
+services:
+  app:
+    build: .
+    image: digital-receipts-analyzer
+    container_name: dra
+    ports:
+      - "8090:8000"
+    volumes:
+      # Persist in-app edits (renames, basket) and serve the prebuilt DB/CSVs.
+      # This is the same data/ the local dev setup uses (single source of truth).
+      - ./data:/app/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c",
+             "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8000/api/stats', timeout=3).status==200 else 1)"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
