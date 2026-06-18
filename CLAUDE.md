@@ -12,7 +12,7 @@ There is **no Streamlit app** — it was removed on 2026-06-18. The single front
 is `web/` (React). Don't re-introduce Streamlit/Plotly/Altair/pandas unless asked.
 
 ## Where things live (important)
-- **Code is on `C:`**: `C:\Users\s.demirov\projects\kaufland-receipts` (kept off
+- **Code is on `C:`**: `C:\Users\s.demirov\projects\receipts-analyzer` (kept off
   Google Drive so `venv/` and `node_modules/` don't sync). Always run commands from
   here.
 - **The receipt PDFs are on Google Drive**: `C:\Users\s.demirov\My Drive\1Kaufland Receipts`
