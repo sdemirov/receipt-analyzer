@@ -10,7 +10,7 @@
 
 ## Global Constraints
 
-- **No git repo** in this project (per project CLAUDE.md). Replace every "commit" with a **Checkpoint**: run the task's full verification and stop for review. Do **not** run `git`.
+- **Git repo exists** (branch `feature/lidl-png-extraction`). Each task's **Checkpoint** = run the task's full verification, then `git add` the task's files and `git commit` with a Conventional-Commits message ending `Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>`. Do **not** push.
 - **Reuse** `ParsedReceipt`, `LineItem`, `_sanitize_text`, `_sanitize_name` from `extract/parse.py`. Do **not** duplicate them.
 - **Do not change** the Kaufland PDF path (`extract/parse.py`) behaviour.
 - **All amounts stored in EUR.** Lidl receipts are EUR (`currency="EUR"`), so `build_db`'s conversion factor is 1.0 for them.
