@@ -9,8 +9,9 @@ services:
       # Persist in-app edits (renames, basket) and serve the prebuilt DB/CSVs.
       # This is the same data/ the local dev setup uses (single source of truth).
       - ./data:/app/data
-      # Developer-local path — update for other machines
-      - "C:/Users/s.demirov/My Drive/1Kaufland Receipts:/receipts:ro"
+      # Developer-local path — update for other machines. Root holds per-store
+      # subfolders: Kaufland/*.pdf and Lidl/*.png.
+      - "C:/Users/s.demirov/My Drive/DigitalReceipts:/receipts:ro"
     environment:
       - RECEIPTS_DIR=/receipts
     restart: unless-stopped

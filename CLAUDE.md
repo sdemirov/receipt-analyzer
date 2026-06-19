@@ -21,11 +21,14 @@ is `web/` (React). Don't re-introduce Streamlit/Plotly/Altair/pandas unless aske
 - **Code is on `C:`**: `C:\Users\s.demirov\projects\receipts-analyzer` (kept off
   Google Drive so `venv/` and `node_modules/` don't sync). Always run commands from
   here.
-- **The receipt PDFs are on Google Drive**: `C:\Users\s.demirov\My Drive\1Kaufland Receipts`
-  (`RECEIPTS_DIR` in `config.py`; was `G:\My Drive\…` — moved 2026-06-18). It's still
-a Google-Drive virtual folder, so it can **transiently unmount** (you may see
-  "folder deleted" / 0 PDFs) — a mount glitch, NOT data loss. Only `build_db.main()`
-  and `tools/rename_pdfs.py` read the PDFs; everything else (API, rename, search,
+- **The receipts are on Google Drive**: `C:\Users\s.demirov\My Drive\DigitalReceipts`
+  (`RECEIPTS_DIR` in `config.py`; reorganised 2026-06-19 from the old flat
+  `1Kaufland Receipts`). It now has **per-store subfolders**: `Kaufland/*.pdf` and
+  `Lidl/*.png`. `build_db.parse_all()` `rglob`s both and routes by extension;
+  `source_pdf` stores the path **relative to** `RECEIPTS_DIR` (e.g. `Lidl/Файл_000 (1).png`).
+  It's still a Google-Drive virtual folder, so it can **transiently unmount** (you may
+  see "folder deleted" / 0 files) — a mount glitch, NOT data loss. Only `build_db.main()`
+  and `tools/rename_pdfs.py` read the receipts; everything else (API, rename, search,
   receipt preview) uses files in the project `data/` on `C:` and works regardless.
 - Git repo **does** exist here (GitHub `origin` = sdemirov/receipt-analyzer; default
   branch `main`). The Lidl-PNG work was done on `feature/lidl-png-extraction`.

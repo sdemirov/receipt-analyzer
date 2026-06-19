@@ -188,10 +188,14 @@ def apply_meta_to_db() -> int:
 
 def parse_all() -> list[ParsedReceipt]:
     from extract.parse_lidl import parse_lidl
-    sources = sorted(RECEIPTS_DIR.glob("*.pdf")) + sorted(RECEIPTS_DIR.glob("*.png"))
+    # Receipts live in per-store subfolders (Kaufland/*.pdf, Lidl/*.png); rglob
+    # finds them at any depth and routing stays by extension. source_pdf keeps the
+    # path relative to RECEIPTS_DIR so the blob lookup finds the file.
+    sources = sorted(RECEIPTS_DIR.rglob("*.pdf")) + sorted(RECEIPTS_DIR.rglob("*.png"))
     receipts, unparsed_log = [], []
     for p in sources:
         r = parse_lidl(p) if p.suffix.lower() == ".png" else parse_receipt(p)
+        r.source_pdf = p.relative_to(RECEIPTS_DIR).as_posix()
         receipts.append(r)
         for line in r.unparsed:
             unparsed_log.append(f"{r.source_pdf}\t{line}")

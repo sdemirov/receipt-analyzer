@@ -1,12 +1,13 @@
 """Central configuration paths for the Kaufland receipts pipeline."""
 from pathlib import Path
 
-# Folder containing the downloaded receipt PDFs.
+# Root folder of the downloaded receipts, organised per store in subfolders:
+#   <RECEIPTS_DIR>/Kaufland/*.pdf   and   <RECEIPTS_DIR>/Lidl/*.png
 # Override with the RECEIPTS_DIR env var if the path changes.
 import os
 
 RECEIPTS_DIR = Path(
-    os.environ.get("RECEIPTS_DIR", r"C:\Users\s.demirov\My Drive\1Kaufland Receipts")
+    os.environ.get("RECEIPTS_DIR", r"C:\Users\s.demirov\My Drive\DigitalReceipts")
 )
 
 # Project-local data directory (kept out of Google Drive).
