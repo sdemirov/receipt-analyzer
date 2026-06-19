@@ -179,6 +179,11 @@ body {
 .basket-btn.clear:hover { background: #f3f4f6; }
 
 /* Receipts list */
+.receipts-head { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+.receipts-head .hint { flex: 1; min-width: 220px; }
+.store-filter { width: 240px; max-width: 100%; padding: 7px 10px; font-size: 13px;
+  border: 1px solid var(--line); border-radius: 8px; background: #fff; }
+.store-filter:focus { outline: none; border-color: var(--accent); }
 .receipts-table { width: 100%; border-collapse: collapse; font-size: 13px; }
 .receipts-table th, .receipts-table td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--line); }
 .receipts-table th { color: var(--muted); font-weight: 600; }

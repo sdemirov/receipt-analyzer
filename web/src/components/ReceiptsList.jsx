@@ -19,21 +19,29 @@ export default function ReceiptsList({ selectedIds, onToggleProduct }) {
   const [page, setPage] = useState(0);
   const [openRid, setOpenRid] = useState(null);
   const [sort, setSort] = useState({ key: "date", dir: "desc" });
+  const [storeQuery, setStoreQuery] = useState("");
 
   useEffect(() => {
     api.receipts().then(setRows).catch(() => setRows([]));
   }, []);
 
+  const filtered = useMemo(() => {
+    const q = storeQuery.trim().toLowerCase();
+    if (!q) return rows;
+    return rows.filter((r) =>
+      `${r.store_name || ""} ${r.branch_id || ""}`.toLowerCase().includes(q));
+  }, [rows, storeQuery]);
+
   const sorted = useMemo(() => {
     const c = COLS.find((c) => c.key === sort.key);
-    if (!c) return rows;
-    const out = [...rows].sort((a, b) => {
+    if (!c) return filtered;
+    const out = [...filtered].sort((a, b) => {
       const va = c.val(a), vb = c.val(b);
       const cmp = c.type === "num" ? va - vb : String(va).localeCompare(String(vb), "bg");
       return sort.dir === "asc" ? cmp : -cmp;
     });
     return out;
-  }, [rows, sort]);
+  }, [filtered, sort]);
 
   function onSort(key) {
     setSort((s) => (s.key === key ? { key, dir: s.dir === "asc" ? "desc" : "asc" } : { key, dir: "asc" }));
@@ -46,7 +54,20 @@ export default function ReceiptsList({ selectedIds, onToggleProduct }) {
 
   return (
     <div className="panel receipts">
-      <p className="hint">Всички бележки ({rows.length}). Кликни заглавие, за да сортираш · ред, за да видиш продукти / текст / PDF.</p>
+      <div className="receipts-head">
+        <p className="hint">
+          {storeQuery.trim()
+            ? `${filtered.length} от ${rows.length} бележки`
+            : `Всички бележки (${rows.length})`}. Кликни заглавие, за да сортираш · ред, за да видиш продукти / текст / PDF.
+        </p>
+        <input
+          className="store-filter"
+          type="search"
+          placeholder="Филтър по магазин… (напр. Лидл)"
+          value={storeQuery}
+          onChange={(e) => { setStoreQuery(e.target.value); setPage(0); }}
+        />
+      </div>
       <table className="receipts-table">
         <thead>
           <tr>
@@ -71,11 +92,15 @@ export default function ReceiptsList({ selectedIds, onToggleProduct }) {
               </tr>
             );
           })}
-          {rows.length === 0 && <tr><td colSpan={6} className="muted">Няма бележки</td></tr>}
+          {sorted.length === 0 && (
+            <tr><td colSpan={6} className="muted">
+              {rows.length === 0 ? "Няма бележки" : "Няма съвпадения за този магазин"}
+            </td></tr>
+          )}
         </tbody>
       </table>
 
-      {rows.length > PAGE && (
+      {sorted.length > PAGE && (
         <div className="pager">
           <button disabled={cur === 0} onClick={() => setPage(cur - 1)}>← Назад</button>
           <span>Стр. {cur + 1} / {pageCount}</span>
