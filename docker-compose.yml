@@ -9,6 +9,9 @@ services:
       # Persist in-app edits (renames, basket) and serve the prebuilt DB/CSVs.
       # This is the same data/ the local dev setup uses (single source of truth).
       - ./data:/app/data
+      - "C:/Users/s.demirov/My Drive/1Kaufland Receipts:/receipts:ro"
+    environment:
+      - RECEIPTS_DIR=/receipts
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "python", "-c",

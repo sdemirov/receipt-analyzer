@@ -97,3 +97,8 @@ def parse_lidl_text(text: str, source: str) -> ParsedReceipt:
         pending = None
         r.unparsed.append(line)
     return r
+
+
+def parse_lidl(path: str | Path) -> ParsedReceipt:
+    from extract.ocr import ocr_image  # lazy: only needs tesseract at call time
+    return parse_lidl_text(ocr_image(path), Path(path).name)
