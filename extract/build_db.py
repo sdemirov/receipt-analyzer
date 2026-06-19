@@ -47,7 +47,8 @@ CREATE TABLE receipts (
 
 CREATE TABLE receipt_pdfs (
     receipt_id      INTEGER PRIMARY KEY REFERENCES receipts(id),
-    pdf             BLOB
+    pdf             BLOB,
+    media_type      TEXT
 );
 
 CREATE TABLE products (
@@ -186,10 +187,11 @@ def apply_meta_to_db() -> int:
 
 
 def parse_all() -> list[ParsedReceipt]:
-    pdfs = sorted(RECEIPTS_DIR.glob("*.pdf"))
+    from extract.parse_lidl import parse_lidl
+    sources = sorted(RECEIPTS_DIR.glob("*.pdf")) + sorted(RECEIPTS_DIR.glob("*.png"))
     receipts, unparsed_log = [], []
-    for p in pdfs:
-        r = parse_receipt(p)
+    for p in sources:
+        r = parse_lidl(p) if p.suffix.lower() == ".png" else parse_receipt(p)
         receipts.append(r)
         for line in r.unparsed:
             unparsed_log.append(f"{r.source_pdf}\t{line}")
@@ -214,6 +216,15 @@ def main() -> None:
         else:
             seen_unp.add(r.unp)
             kept.append(r)
+
+    for r in kept:
+        if r.item_count_hint and len(r.items) != r.item_count_hint:
+            print(f"  [check] {r.source_pdf}: parsed {len(r.items)} items "
+                  f"but receipt says {r.item_count_hint}")
+        if r.total and r.items:
+            s = round(sum(it.line_total for it in r.items), 2)
+            if abs(s - r.total) > 0.05:
+                print(f"  [check] {r.source_pdf}: items sum {s} != total {r.total}")
 
     # --- product mapping built only from kept receipts (preserve user edits) ---
     raw_names = [it.raw_name for r in kept for it in r.items]
@@ -268,11 +279,13 @@ def main() -> None:
              r.payment_method, r.points, r.source_pdf, r.raw_text),
         )
         rid = cur.lastrowid
-        # store the original PDF bytes in the DB (smallest faithful format)
-        pdf_path = RECEIPTS_DIR / r.source_pdf
-        if pdf_path.exists():
-            cur.execute("INSERT INTO receipt_pdfs (receipt_id, pdf) VALUES (?, ?)",
-                        (rid, pdf_path.read_bytes()))
+        # store the original source bytes in the DB with its media type
+        src_path = RECEIPTS_DIR / r.source_pdf
+        if src_path.exists():
+            media = "image/png" if src_path.suffix.lower() == ".png" else "application/pdf"
+            cur.execute(
+                "INSERT INTO receipt_pdfs (receipt_id, pdf, media_type) VALUES (?, ?, ?)",
+                (rid, src_path.read_bytes(), media))
         for it in r.items:
             pid = mapping[it.raw_name][1]
             cur.execute(
