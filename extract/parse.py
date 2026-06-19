@@ -91,6 +91,7 @@ class ParsedReceipt:
     currency: str = "BGN"          # receipt currency ("BGN" pre-2026, else "EUR")
     payment_method: Optional[str] = None
     points: Optional[int] = None
+    item_count_hint: Optional[int] = None  # "N АРТИКУЛА" checksum (Lidl)
     raw_text: str = ""           # full extracted receipt text
     items: List[LineItem] = field(default_factory=list)
     unparsed: List[str] = field(default_factory=list)
