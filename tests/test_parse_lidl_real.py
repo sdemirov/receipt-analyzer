@@ -42,6 +42,18 @@ def test_ocr_misread_month_recovered():
     assert r.purchase_time == "20:31:16"
 
 
+def test_weighed_item_qty_recovered():
+    """A weighed item prints 'weight,kg x price/kg'; OCR misread the leading 0
+    ('8,265 x 16,31' for '0,265 x 16,31'). Quantity is recomputed from
+    line_total/unit and the item is classified as kg."""
+    r = _load("file_000_3")
+    ham = next(it for it in r.items if "ШУНКА" in it.raw_name)
+    assert ham.unit_measure == "kg"
+    assert ham.line_total == 4.32
+    assert abs(ham.unit_price - 16.31) < 0.01
+    assert abs(ham.qty - 0.265) < 0.005          # NOT 8.265
+
+
 def test_currency_by_date():
     """Pre-2026 Lidl receipts are priced in BGN; 2026+ in EUR (euro adoption
     2026-01-01). build_db converts BGN -> EUR."""

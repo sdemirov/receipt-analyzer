@@ -196,8 +196,19 @@ def parse_lidl_text(text: str, source: str) -> ParsedReceipt:
             name = _sanitize_name(name).strip(' "\'')
             if pending:
                 qty, unit = pending
-                # printed amount is the line total; keep parsed qty/unit
-                r.items.append(LineItem(name, qty, unit, amt, vat))
+                # The printed amount (line total) and unit price are the reliable
+                # OCR fields; the qty/weight often isn't (e.g. a weight's leading 0
+                # is misread as 8: "8,265 x 16,31" should be "0,265"). Recompute the
+                # quantity from amount/unit when the printed qty is inconsistent.
+                if unit and abs(qty * unit - amt) > 0.02:
+                    qty = amt / unit
+                # A whole-number quantity is a piece count; a fractional one is a
+                # weighed item in kg (unit is then the price per kg).
+                if unit and abs(qty - round(qty)) > 0.02:
+                    r.items.append(LineItem(name, round(qty, 3), unit, amt, vat,
+                                            unit_measure="kg"))
+                else:
+                    r.items.append(LineItem(name, int(round(qty)) or 1, unit, amt, vat))
             else:
                 r.items.append(LineItem(name, 1, amt, amt, vat))
             pending = None
