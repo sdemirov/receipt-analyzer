@@ -40,6 +40,7 @@ export default function ReceiptModal({ rid, onClose, selectedIds = new Set(), on
   };
 
   const r = data?.receipt;
+  const isImage = !!r?.source_pdf && /\.png$/i.test(r.source_pdf);
 
   return (
     <div className="modal-layer">
@@ -66,7 +67,7 @@ export default function ReceiptModal({ rid, onClose, selectedIds = new Set(), on
             <div className="modal-tabs">
               <button className={tab === "items" ? "on" : ""} onClick={() => setTab("items")}>Продукти</button>
               <button className={tab === "text" ? "on" : ""} onClick={() => setTab("text")}>Извлечен текст</button>
-              <button className={tab === "pdf" ? "on" : ""} onClick={() => setTab("pdf")}>PDF</button>
+              <button className={tab === "pdf" ? "on" : ""} onClick={() => setTab("pdf")}>{isImage ? "Снимка" : "PDF"}</button>
             </div>
 
             <div className="modal-body">
@@ -107,9 +108,11 @@ export default function ReceiptModal({ rid, onClose, selectedIds = new Set(), on
                 <div className="pdf-view">
                   <div className="pdf-actions">
                     <a href={api.pdfUrl(rid)} target="_blank" rel="noreferrer">Отвори в нов раздел ↗</a>
-                    <a href={api.pdfUrl(rid)} download={`${r.purchase_date || "receipt"}.pdf`}>⬇ Изтегли PDF</a>
+                    <a href={api.pdfUrl(rid)} download={`${r.purchase_date || "receipt"}${isImage ? ".png" : ".pdf"}`}>⬇ Изтегли {isImage ? "снимка" : "PDF"}</a>
                   </div>
-                  <iframe className="pdf-frame" title="receipt pdf" src={api.pdfUrl(rid)} />
+                  {isImage
+                    ? <img className="pdf-frame" alt="receipt" src={api.pdfUrl(rid)} style={{ width: "100%", objectFit: "contain" }} />
+                    : <iframe className="pdf-frame" title="receipt pdf" src={api.pdfUrl(rid)} />}
                 </div>
               )}
             </div>
