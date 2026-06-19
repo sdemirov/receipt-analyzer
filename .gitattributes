@@ -1,0 +1,5 @@
+# Shell scripts and systemd units run on the Linux server — force LF so a
+# Windows checkout's CRLF can't break them ("bad interpreter: bash\r").
+*.sh            text eol=lf
+deploy/*.service text eol=lf
+deploy/*.timer   text eol=lf
