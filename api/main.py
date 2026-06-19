@@ -303,3 +303,28 @@ def receipts() -> list[dict]:
            FROM receipts r LEFT JOIN line_items li ON li.receipt_id = r.id
            GROUP BY r.id ORDER BY r.purchase_date DESC, r.purchase_time DESC"""
     )
+
+
+@app.get("/line-items")
+def line_items() -> list[dict]:
+    """Every product purchase (one row per line item) for the flat products table."""
+    return q(
+        """SELECT r.purchase_date AS date,
+                  r.purchase_time AS time,
+                  p.id            AS product_id,
+                  p.canonical_name AS product,
+                  li.raw_name     AS raw_name,
+                  li.qty          AS qty,
+                  li.unit_price   AS unit_price,
+                  li.line_total   AS line_total,
+                  li.unit_measure AS unit_measure,
+                  li.vat_class    AS vat_class,
+                  li.on_promo     AS on_promo,
+                  r.store_name    AS store_name,
+                  r.branch_id     AS branch,
+                  r.id            AS receipt_id
+           FROM line_items li
+           JOIN receipts r ON r.id = li.receipt_id
+           JOIN products p ON p.id = li.product_id
+           ORDER BY r.purchase_date DESC, r.purchase_time DESC"""
+    )

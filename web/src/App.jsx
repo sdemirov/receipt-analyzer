@@ -4,8 +4,9 @@ import PriceExplorer from "./components/PriceExplorer.jsx";
 import SpendDashboard from "./components/SpendDashboard.jsx";
 import RenameEditor from "./components/RenameEditor.jsx";
 import ReceiptsList from "./components/ReceiptsList.jsx";
+import ProductsTable from "./components/ProductsTable.jsx";
 
-const TABS = ["prices", "spend", "receipts", "rename"];
+const TABS = ["prices", "spend", "receipts", "products", "rename"];
 const tabFromHash = () => {
   const h = window.location.hash.replace(/^#\/?/, "");
   return TABS.includes(h) ? h : "prices";
@@ -68,6 +69,9 @@ export default function App() {
         <button className={tab === "receipts" ? "active" : ""} onClick={() => go("receipts")}>
           🧾 Бележки
         </button>
+        <button className={tab === "products" ? "active" : ""} onClick={() => go("products")}>
+          📋 Продукти
+        </button>
         <button className={tab === "rename" ? "active" : ""} onClick={() => go("rename")}>
           ✏️ Редакция
         </button>
@@ -81,6 +85,10 @@ export default function App() {
         {tab === "spend" && <SpendDashboard />}
         {tab === "receipts" && (
           <ReceiptsList selectedIds={new Set(selected.map((s) => s.id))}
+            onToggleProduct={toggleProduct} />
+        )}
+        {tab === "products" && (
+          <ProductsTable selectedIds={new Set(selected.map((s) => s.id))}
             onToggleProduct={toggleProduct} />
         )}
         {tab === "rename" && <RenameEditor />}

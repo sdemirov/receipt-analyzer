@@ -42,4 +42,5 @@ export const api = {
   setBasket: (id, inBasket) => put(`/products/${id}/basket`, { in_basket: inBasket }),
   basket: () => get("/basket"),
   receipts: () => get("/receipts"),
+  lineItems: () => get("/line-items"),
 };
