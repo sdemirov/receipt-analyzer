@@ -5,4 +5,6 @@ web/node_modules/
 web/dist/
 data/receipts.db
 data/unparsed_lines.log
+data/ocr_cache/
+.env
 .playwright-mcp/

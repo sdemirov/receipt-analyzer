@@ -1,0 +1,12 @@
+# Runs receipts-refresh.service hourly (and ~2 min after boot). Adjust OnCalendar
+# to taste (e.g. "*-*-* 02:00:00" for once daily at 02:00).
+[Unit]
+Description=Hourly receipts sync + DB rebuild
+
+[Timer]
+OnBootSec=2min
+OnCalendar=hourly
+Persistent=true
+
+[Install]
+WantedBy=timers.target

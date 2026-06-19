@@ -1,0 +1,16 @@
+# systemd one-shot: sync receipts from Drive + rebuild the DB.
+# Install: copy this + the .timer to /etc/systemd/system/, edit paths/User, then
+#   sudo systemctl daemon-reload && sudo systemctl enable --now receipts-refresh.timer
+[Unit]
+Description=Sync DigitalReceipts from Google Drive and rebuild the analyzer DB
+Wants=network-online.target docker.service
+After=network-online.target docker.service
+
+[Service]
+Type=oneshot
+# Run as the user that owns the checkout and can talk to Docker + rclone.
+User=deploy
+WorkingDirectory=/opt/receipts-analyzer
+ExecStart=/opt/receipts-analyzer/deploy/refresh.sh
+# Don't pile up runs if a rebuild is slow.
+TimeoutStartSec=1800

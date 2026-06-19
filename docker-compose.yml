@@ -9,9 +9,10 @@ services:
       # Persist in-app edits (renames, basket) and serve the prebuilt DB/CSVs.
       # This is the same data/ the local dev setup uses (single source of truth).
       - ./data:/app/data
-      # Developer-local path — update for other machines. Root holds per-store
-      # subfolders: Kaufland/*.pdf and Lidl/*.png.
-      - "C:/Users/s.demirov/My Drive/DigitalReceipts:/receipts:ro"
+      # Receipts root (per-store subfolders Kaufland/*.pdf + Lidl/*.png), read-only.
+      # Host path is parameterised: defaults to the local Google-Drive folder; on a
+      # server set RECEIPTS_HOST_DIR in .env (e.g. the rclone sync target /srv/...).
+      - "${RECEIPTS_HOST_DIR:-C:/Users/s.demirov/My Drive/DigitalReceipts}:/receipts:ro"
     environment:
       - RECEIPTS_DIR=/receipts
     restart: unless-stopped
