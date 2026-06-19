@@ -10,11 +10,11 @@ from PIL import Image, ImageOps
 
 
 def ocr_image(path: str | Path) -> str:
-    img = Image.open(path)
-    img = ImageOps.exif_transpose(img)
+    with Image.open(path) as src:
+        img = ImageOps.exif_transpose(src)
     img = ImageOps.grayscale(img)
     w, h = img.size
     if max(w, h) < 2000:                      # upscale small scans
-        img = img.resize((w * 2, h * 2))
+        img = img.resize((w * 2, h * 2), Image.Resampling.LANCZOS)
     img = ImageOps.autocontrast(img)
     return pytesseract.image_to_string(img, lang="bul")
