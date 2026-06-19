@@ -29,8 +29,8 @@ web/
       PriceExplorer.jsx   price-over-time tab
       SpendDashboard.jsx  spending tab
       RenameEditor.jsx    rename products tab
-      ReceiptModal.jsx    receipt detail modal (items / text / PDF)
-      PdfView.jsx         PDF.js canvas renderer
+      ReceiptsList.jsx    receipts list tab (all receipts, filterable by store)
+      ReceiptModal.jsx    receipt detail modal (items / text / PDF iframe or image)
     styles.css
 ```
 
@@ -43,16 +43,35 @@ web/
 - Selecting products fetches `/products/{id}/prices` for each and merges them by
   date into one Recharts `LineChart` (one line per product, `connectNulls`).
 - Filters: date range (`От`/`До`) and store (`Магазин`) re-query the series.
+- **Weighed items** (`unit_measure="kg"`) are plotted by **amount paid**
+  (`line_total`) rather than per-unit price; the tooltip shows `qty кг @ €/кг`.
+  Piece items plot the per-unit price as before.
 - **Promo points** are drawn with a gold „%" ringed marker; the tooltip shows the
   saving and the implied regular price (`makeDot` + `PriceTooltip`).
+- **Store in tooltip** — each point shows the store name (🏬) from `store_name` in
+  the `/products/{id}/prices` response, so Kaufland vs Lidl purchases are visually
+  distinguishable.
 - **Clickable points** — clicking a point opens `ReceiptModal` for that purchase,
   with tabs **Продукти** (line items), **Извлечен текст** (raw text), and **PDF**
-  (rendered on a canvas with PDF.js via `PdfView`, so it displays in-app and never
-  downloads). Both come from the DB (`/receipts/{id}` and `/receipts/{id}/pdf`).
+  (Kaufland: `<iframe>`; Lidl: `<img>` — tab label changes to **Снимка**). Both come
+  from the DB (`/receipts/{id}` and `/receipts/{id}/pdf`).
+
+### Бележки tab (`ReceiptsList.jsx`)
+All receipts in a sortable paginated table (date, store, item count, total, payment,
+savings). A **free-text store filter** (`Филтър по магазин…`) lets you type e.g.
+"Лидл" to see only Lidl receipts. Clicking a row opens `ReceiptModal`.
 
 ### Разходи tab (`SpendDashboard.jsx`)
 Charts from `/analytics/spend`: spend by month (line), by store (bar), by VAT
 (pie), by category (bar), and top-15 products (bar).
+
+### Receipt modal (`ReceiptModal.jsx`)
+Three tabs: **Продукти** (line items — kg items show `qty кг` in the quantity column),
+**Извлечен текст** (raw OCR or PDF text), and **PDF / Снимка** (the tab label adapts
+to the source type). For Kaufland PDFs the blob is shown in an `<iframe>`.
+For Lidl PNGs an `<img>` is shown with zoom controls: −/+ buttons (100–500% in 50%
+steps) and click-to-cycle (zoom in to 3× then reset). The modal is draggable so you
+can keep it open while navigating the chart.
 
 ### ✏️ Преименуване tab (`RenameEditor.jsx`)
 Rename products so shortened names read the way you want (e.g. expand

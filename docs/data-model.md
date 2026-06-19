@@ -22,19 +22,23 @@ One row per unique receipt (deduped by `unp`).
 | `promo_savings` | REAL | Item-level price-promo savings |
 | `payment_method` | TEXT | `В брой` / `Кредитна карта` / `Дебитна карта` |
 | `points` | INTEGER | Loyalty points earned |
-| `source_pdf` | TEXT | Originating filename |
+| `source_pdf` | TEXT | Originating path **relative to `RECEIPTS_DIR`**, e.g. `Kaufland/2026-05-30.pdf` or `Lidl/Файл_000 (1).png` |
 | `raw_text` | TEXT | Full extracted receipt text (for the modal) |
 
 ### `receipt_pdfs`
-Stores the **original PDF bytes** so the app is self-contained (no dependency on
-the PDF folder at runtime). PDF is the most storage-efficient faithful format for
-these vector-text receipts — ~91 KB each (~11.5 MB total), vs ~243 KB JPEG / ~420 KB
-PNG if rasterised. Kept in a separate table so analytics queries never load blobs.
+Stores the **original receipt bytes** (PDF or PNG) so the app is self-contained (no
+dependency on the source folder at runtime). Kept in a separate table so analytics
+queries never load blobs.
 
 | Column | Type | Notes |
 |--------|------|-------|
 | `receipt_id` | INTEGER PK → receipts.id | |
-| `pdf` | BLOB | original PDF bytes |
+| `pdf` | BLOB | original PDF **or PNG** bytes |
+| `media_type` | TEXT | `application/pdf` (Kaufland) or `image/png` (Lidl) |
+
+`GET /receipts/{id}/pdf` serves the blob with its stored `media_type`. The React
+modal detects `source_pdf.endsWith(".png")` to choose between an `<img>` preview
+("Снимка" tab) and an `<iframe>` ("PDF" tab).
 
 ### `products`
 One row per distinct product (after fuzzy grouping).
@@ -117,7 +121,11 @@ re-running `build_db` keeps it. Details: [brand-category.md](brand-category.md).
 ## Rebuilding
 
 ```bash
+# Full build (Kaufland PDFs + Lidl PNGs) — requires Docker (tesseract is in the image)
+docker compose run --rm app python -m extract.build_db
+
+# Kaufland-only build on the host venv (no tesseract needed)
 venv/Scripts/python.exe -m extract.build_db
 ```
 
-Drops and recreates all three tables every run; the CSVs persist.
+Drops and recreates all four tables every run; the CSVs persist.

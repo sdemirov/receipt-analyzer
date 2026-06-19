@@ -1,8 +1,8 @@
 # Documentation
 
 Detailed docs for the **Digital Receipts Analyzer** project — extracting products and
-prices from Bulgarian digital receipt PDFs and exploring price history
-and spending.
+prices from Bulgarian grocery receipts (Kaufland PDF + Lidl PNG) and exploring price
+history and spending.
 
 ## Index
 
@@ -21,18 +21,23 @@ and spending.
 ## 30-second overview
 
 ```
-store receipt PDFs  ──pdfplumber──►  parsed line items + metadata
-        │                                         │
-        │                          rapidfuzz (size-aware) grouping
-        │                          + brand/category heuristics
-        ▼                                         ▼
-   data/receipts.db  ◄────────────────────  build_db.py
-        │
-        └──►  FastAPI (api/main.py)  ──►  React SPA (web/)
+ Kaufland/*.pdf  ──pdfplumber──►┐
+                                 ├─ ParsedReceipt (same model)
+ Lidl/*.png  ──Tesseract OCR──►─┘      │
+                                        │  rapidfuzz (size-aware) grouping
+                                        │  + brand/category heuristics
+                                        ▼
+                            data/receipts.db  ◄── build_db.py
+                                        │
+                                        └──►  FastAPI (api/main.py)  ──►  React SPA (web/)
 ```
 
-The PDFs are **digital text** (no OCR). Everything downstream is rebuilt from
-them by a single idempotent command: `python -m extract.build_db`.
+Two receipt sources: **Kaufland** digital PDFs (text, pdfplumber, no OCR) and
+**Lidl** PNG photos (OCR'd with Tesseract `bul+eng` inside Docker). Both flow
+through the same `ParsedReceipt`/`LineItem` model. Everything downstream is
+rebuilt by a single idempotent command:
+`docker compose run --rm app python -m extract.build_db`
+(or `venv/Scripts/python.exe -m extract.build_db` on the host for Kaufland-only).
 
 Two editable files let you correct the inevitable fuzziness:
 - `data/product_mapping.csv` — which raw names form one product.

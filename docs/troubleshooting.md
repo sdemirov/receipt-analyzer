@@ -29,8 +29,30 @@ is taken, Vite picks the next port — check its console output.
 A new receipt has a layout the parser doesn't recognise (e.g. a different weight
 unit or a new promo line). Open `data/unparsed_lines.log`, find the offending
 lines, and extend the patterns in `extract/parse.py`
-(`QTY_RE` / `WEIGHT_RE` / `SINGLE_RE`, or the skip rules). See
+(`QTY_RE` / `WEIGHT_RE` / `SINGLE_RE`, or the skip rules for Kaufland) or
+`extract/parse_lidl.py` (`QTY_RE` / `ITEM_RE` / `DECOR_RE` for Lidl). See
 [extraction.md](extraction.md).
+
+## Lidl receipt parses 0 items
+OCR ran but the item-region anchors were not found.
+
+1. Check `data/unparsed_lines.log` — lines are logged there if the region was found
+   but items couldn't be matched.
+2. Print the raw OCR text (`python -m extract.parse_lidl_text <png>` or look at the
+   **Извлечен текст** tab in the receipt modal) and verify:
+   - A line matching `[КK][аa][сc][иu][еe][рp]` (the `Касиер` header) exists.
+   - A line starting `МЕЖДИННА СУМА` or `ОБЩА СУМА` exists after it.
+3. If the `Касиер` line is missing/mangled by OCR, the parser falls back to the
+   old `Евро`/`BGN` currency-header anchor. If that's also gone, 0 items result.
+4. Check `build_db` output for `[check]` lines — they indicate parsed count vs
+   receipt hint and line-total sum vs total, which can point to systematic
+   mis-parsing.
+
+## Lidl date is wrong / impossible month
+Thermal-print OCR often misreads a leading `0` in the month field (e.g. `09→89`).
+`parse_lidl` corrects this with `_fix_month`: if `int(mm) > 12` and the second
+digit is valid (1–9), it replaces the first digit with `0`. If you still see a
+wrong date, check the raw OCR text for the footer line `#DD/MM/YY HH:MM:SS#`.
 
 ## Two sizes of the same product are merged into one
 The size-aware guard should prevent this, but odd spellings can slip through.

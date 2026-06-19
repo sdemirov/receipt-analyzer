@@ -7,12 +7,25 @@ Output: a `ParsedReceipt` dataclass. No OCR — the PDFs are digital text read w
 > **Lidl PNG receipts** take a different front end but the SAME `ParsedReceipt`
 > output: [`extract/ocr.py`](../extract/ocr.py) OCRs the photo with Tesseract
 > (`lang="bul+eng"`, run inside the Docker container) and
-> [`extract/parse_lidl.py`](../extract/parse_lidl.py) parses the (noisy) text. Key
-> layout differences: the quantity line precedes the item name, the item region runs
-> from the `Касиер` header to `МЕЖДИННА СУМА`, currency is EUR, and prices/VAT/UNP are
-> OCR-noisy (the parser tolerates space-in-price, optional product codes/VAT letters,
-> and falls back to the filename as the dedup key when the `УНП:` line is lost). See
-> the design + plan under `docs/superpowers/`.
+> [`extract/parse_lidl.py`](../extract/parse_lidl.py) parses the (noisy) text.
+> Key layout differences from Kaufland:
+>
+> - **qty line precedes the item name** (opposite of Kaufland): `2,000 x 0,97` comes
+>   before the product name + line total.
+> - **Item region** runs from the `Касиер` header line to `МЕЖДИННА СУМА` / `ОБЩА СУМА`.
+> - **Currency keys off the date** (the OCR'd header is unreliable): pre-2026 receipts
+>   are BGN (converted to EUR by `build_db` at `BGN_PER_EUR` = 1.9558); 2026+ are EUR.
+> - **UNP falls back to the filename** when the `УНП:` line is OCR-dropped (38 of 43
+>   receipts); without this, dedup would discard the receipt.
+> - **Weighed items**: qty is recomputed from `line_total / unit_price` when the OCR'd
+>   figure is inconsistent; a fractional result → `unit_measure="kg"`, `unit_price` is
+>   the price per kg.
+> - The parser tolerates space-in-price (`3, 06`), trailing extra digits, optional
+>   embedded product codes, and `В→Б` OCR VAT confusion.
+> - `build_db` prints `[check]` lines (item count vs `N АРТИКУЛА` hint; line-total sum
+>   vs total) for PNGs and logs unmatched lines to `data/unparsed_lines.log`.
+>
+> See the design + plan under `docs/superpowers/`.
 
 ## Anatomy of a receipt
 
@@ -120,14 +133,19 @@ specific):
 
 Any item-region line that matches none of the three patterns (and isn't a name
 precursor) is appended to `ParsedReceipt.unparsed` and written to
-`data/unparsed_lines.log` with its source filename. On the current dataset this
-log is **empty** (0 unparsed across 135 PDFs). If you add receipts with a new
-layout (e.g. a different weight unit), check this log first.
+`data/unparsed_lines.log` with its source filename. On the current dataset there are
+**11 unparsed lines** (across 286 source files — mostly OCR noise from Lidl PNGs). If
+you add receipts with a new layout (e.g. a different weight unit or a new Lidl
+layout), check this log first.
 
 ## Run the parser standalone
 
 ```bash
-venv/Scripts/python.exe -m extract.parse "C:/Users/s.demirov/My Drive/1Kaufland Receipts/20260530_213035.pdf"
+# Kaufland PDF
+venv/Scripts/python.exe -m extract.parse "C:/Users/s.demirov/My Drive/DigitalReceipts/Kaufland/2026-05-30.pdf"
+
+# Lidl PNG (needs tesseract → run in the container; parse_lidl has no CLI, use -c)
+docker compose run --rm app python -c "from extract.parse_lidl import parse_lidl; r=parse_lidl('/receipts/Lidl/Файл_000 (1).png'); print(r.unp, r.purchase_date, r.total, len(r.items))"
 ```
 
 Prints metadata + every parsed line item — handy when debugging a new receipt
@@ -135,8 +153,8 @@ format.
 
 ## De-duplication (in `build_db.py`)
 
-135 PDFs → 128 unique receipts; 7 are re-downloads of receipts already present.
 `build_db` keeps the first occurrence of each `unp` and skips the rest **before**
 inserting items, so a re-download never doubles a basket. Critically, the product
-mapping is also built only from the kept receipts, keeping product counts
-consistent.
+mapping is also built only from the kept receipts, keeping product counts consistent.
+For Lidl PNGs where the `УНП:` line was OCR-dropped, the filename is used as the
+dedup key (each PNG is a unique photo, so there are no true duplicates there).

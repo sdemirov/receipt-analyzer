@@ -22,8 +22,8 @@ is `web/` (React). Don't re-introduce Streamlit/Plotly/Altair/pandas unless aske
   Google Drive so `venv/` and `node_modules/` don't sync). Always run commands from
   here.
 - **The receipts are on Google Drive**: `C:\Users\s.demirov\My Drive\DigitalReceipts`
-  (`RECEIPTS_DIR` in `config.py`; reorganised 2026-06-19 from the old flat
-  `1Kaufland Receipts`). It now has **per-store subfolders**: `Kaufland/*.pdf` and
+  (`RECEIPTS_DIR` in `config.py`; reorganised 2026-06-19 into per-store subfolders).
+  It has **`Kaufland/*.pdf`** and
   `Lidl/*.png`. `build_db.parse_all()` `rglob`s both and routes by extension;
   `source_pdf` stores the path **relative to** `RECEIPTS_DIR` (e.g. `Lidl/Файл_000 (1).png`).
   It's still a Google-Drive virtual folder, so it can **transiently unmount** (you may
@@ -68,8 +68,9 @@ PDFs or editing CSVs: `./venv/Scripts/python.exe -m extract.build_db`.
   `search_key` (Latin phonetic skeleton for search).
 - `line_items`: name, qty, unit_price (per-kg for weighed), line_total, vat,
   `unit_measure` (pc/kg), `on_promo`, `promo_saving`.
-- `receipt_pdfs(receipt_id, pdf BLOB)`: original PDF bytes (self-contained;
-  PDF chosen over image — smallest faithful format).
+- `receipt_pdfs(receipt_id, pdf BLOB, media_type TEXT)`: original PDF **or PNG**
+  bytes (self-contained). `media_type` is `application/pdf` (Kaufland) or
+  `image/png` (Lidl); the API serves the blob with its stored type.
 
 ## Editable inputs (durable; preserved across rebuilds — DON'T delete or ids renumber)
 - `data/product_mapping.csv` — `raw_name -> canonical_name, product_id`. Edit to
@@ -85,9 +86,11 @@ PDFs or editing CSVs: `./venv/Scripts/python.exe -m extract.build_db`.
 - **Rename**: `PUT /products/{id}/name {display_name}` → `set_display_name()` writes
   the CSV → `apply_meta_to_db()` updates `products.canonical_name`+`search_key`
   (fast, no PDF re-parse). React: "✏️ Преименуване" tab.
-- **Receipt preview**: React renders the stored PDF blob on a canvas via **PDF.js**
-  (`web/src/components/PdfView.jsx`) — never downloads. A plain iframe/inline
-  `Content-Disposition` will DOWNLOAD in headless/plugin-less browsers; keep PDF.js.
+- **Receipt preview** (`web/src/components/ReceiptModal.jsx`): the modal fetches the
+  stored blob from `GET /receipts/{id}/pdf`, served with its `media_type` — Kaufland
+  PDFs render in an `<iframe>`, Lidl PNG images in an `<img>` (the "Снимка" tab, with
+  −/+ zoom + click-to-zoom). There is **no** PdfView.jsx / PDF.js (the modal branches
+  on the `source_pdf` extension).
 - **Character sanitisation** (`parse._sanitize_*`): drops surrogates/control chars
   from names and text; no-op on clean data.
 - **Currency (EUR)**: Bulgaria adopted the euro 2026-01-01. Receipts print
@@ -100,8 +103,9 @@ PDFs or editing CSVs: `./venv/Scripts/python.exe -m extract.build_db`.
   markers on the chart.
 
 ## Lidl PNG receipts (added 2026-06-19)
-- **Source**: `*.png` photos in the same `RECEIPTS_DIR` as the Kaufland PDFs;
-  `build_db.parse_all()` routes by extension (`.pdf`→`parse_receipt`, `.png`→`parse_lidl`).
+- **Source**: `Lidl/*.png` photos under `RECEIPTS_DIR` (Kaufland PDFs live in `Kaufland/`);
+  `build_db.parse_all()` `rglob`s both and routes by extension (`.pdf`→`parse_receipt`,
+  `.png`→`parse_lidl`).
 - **OCR runs in Docker**: `Dockerfile` installs `tesseract-ocr` + `tesseract-ocr-bul`;
   `extract/ocr.py` (`Pillow` preprocess + `pytesseract`, **`lang="bul+eng"`** — receipts
   mix Cyrillic and Latin brand names like `SCHWEPPES`/`NESPRESSO`, so bul-only mangles
@@ -117,6 +121,10 @@ PDFs or editing CSVs: `./venv/Scripts/python.exe -m extract.build_db`.
   (space-in-price `3, 06`, trailing digits, optional product code + VAT letter,
   `В→Б` VAT fixups) and **falls back to the filename as the UNP** when OCR drops the
   `УНП:` line (else dedup would drop the receipt — 38/43 lack a clean УНП line).
+  **Date/time** come from the footer `#DD/MM/YY HH:MM:SS#` (space-tolerant; an
+  impossible month is corrected for the OCR `0→8` glyph confusion). **Weighed items**:
+  qty is recomputed from `line_total/unit` (robust to the same `0→8` noise) and a
+  fractional result → `unit_measure="kg"` with `unit_price` = price per kg.
 - **Preview**: PNG bytes are stored in `receipt_pdfs` with a `media_type` column;
   the API serves them with that type and the React modal shows an `<img>` ("Снимка"
   tab) instead of the PDF `<iframe>`.
@@ -125,6 +133,10 @@ PDFs or editing CSVs: `./venv/Scripts/python.exe -m extract.build_db`.
   lines go to `data/unparsed_lines.log`. Tests: `tests/test_parse_lidl*.py` run on the
   host against 43 real OCR-text fixtures in `tests/fixtures/lidl_ocr/` (no tesseract
   needed). Design/plan: `docs/superpowers/specs|plans/2026-06-19-lidl-png-*`.
+- **UI**: free-text **store-name filter** on the Бележки tab (`ReceiptsList.jsx`); the
+  price chart tooltip shows the **store** (🏬) per point (`/products/{id}/prices` returns
+  `store_name`) and charts **weighed (kg) items by amount paid** (`line_total`, with a
+  `qty кг @ €/кг` tooltip breakdown) while piece items keep the per-unit price.
 
 ## Gotchas / conventions
 - Use **git bash** (Bash tool) for shell work per the user's global CLAUDE.md;

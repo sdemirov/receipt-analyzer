@@ -10,16 +10,16 @@ venv/Scripts/python.exe -m uvicorn api.main:app --reload --port 8000
 
 Interactive docs (FastAPI built-in): <http://localhost:8000/docs>.
 
-All money values are BGN; dates are ISO `YYYY-MM-DD`.
+All money values are **EUR**; dates are ISO `YYYY-MM-DD`.
 
 ---
 
 ### `GET /stats`
 Overview KPIs.
 ```json
-{ "receipts":128, "products":725, "line_items":1750,
-  "first_date":"2023-05-25", "last_date":"2025-04-21",
-  "total_spend":8820.89, "card_savings":69.97, "promo_savings":6.88 }
+{ "receipts":279, "products":1415, "line_items":4018,
+  "first_date":"2021-06-19", "last_date":"2026-06-17",
+  "total_spend":..., "card_savings":..., "promo_savings":... }
 ```
 
 ### `GET /branches`
@@ -61,11 +61,12 @@ Query params: `date_from`, `date_to` (ISO), `branch` (branch_id).
   "points": [ { "date":"2023-05-25", "unit_price":0.39, "line_total":0.39,
                 "qty":1, "unit_measure":"pc", "raw_name":"Торбичка",
                 "on_promo":0, "promo_saving":0.0, "regular_price":0.39,
-                "branch":"6900" } ] }
+                "receipt_id":3, "branch":"6900", "store_name":"Хипермаркет София-Ма…" } ] }
 ```
 `on_promo`/`promo_saving` come from the receipt's `Вие спестявате` annotation;
 `regular_price = unit_price + promo_saving/qty` (the implied pre-promo unit
-price, correct for both piece and weighed items).
+price, correct for both piece and weighed items). `store_name` is used by the
+price-chart tooltip (🏬 store per point).
 
 ### `GET /analytics/spend`
 Aggregated spend. Query param `by`:
@@ -94,8 +95,10 @@ Full detail for one receipt — used by the click-to-open modal.
 ```
 
 ### `GET /receipts/{id}/pdf`
-Streams the original PDF from the DB blob with `Content-Disposition: inline`
-(`application/pdf`). The React app renders it on a canvas via PDF.js.
+Streams the original receipt media from the DB blob with `Content-Disposition: inline`,
+using the **stored `media_type`** (`application/pdf` for Kaufland or `image/png` for
+Lidl). The React modal renders PDFs in an `<iframe>` and Lidl images in an `<img>`
+tag ("Снимка" tab) with zoom controls (−/+ 100–500%, click to cycle).
 
 ### `GET /receipts`
 All receipts with metadata and item counts, newest first.
