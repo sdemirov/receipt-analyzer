@@ -42,6 +42,16 @@ def test_ocr_misread_month_recovered():
     assert r.purchase_time == "20:31:16"
 
 
+def test_currency_by_date():
+    """Pre-2026 Lidl receipts are priced in BGN; 2026+ in EUR (euro adoption
+    2026-01-01). build_db converts BGN -> EUR."""
+    assert _load("file_000_9").currency == "BGN"    # 2023-09-22
+    assert _load("file_000_1").currency == "EUR"    # 2026-04-05
+    # every fixture gets one of the two, never empty
+    for n in _all_fixtures():
+        assert _load(n).currency in ("BGN", "EUR")
+
+
 def test_date_coverage_high():
     """With the space-tolerant footer + month correction, every fixture yields
     a date and time."""

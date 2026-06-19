@@ -113,8 +113,7 @@ def _fix_month(mm: str) -> Optional[str]:
 def parse_lidl_text(text: str, source: str) -> ParsedReceipt:
     text = _sanitize_text(text)
     lines = [ln.strip() for ln in text.splitlines()]
-    r = ParsedReceipt(source_pdf=source, raw_text=text,
-                      currency="EUR", store_name="Лидл")
+    r = ParsedReceipt(source_pdf=source, raw_text=text, store_name="Лидл")
 
     # --- UNP (never None) ---
     if m := UNP_RE.search(text):
@@ -138,6 +137,14 @@ def parse_lidl_text(text: str, source: str) -> ParsedReceipt:
             r.purchase_date = f"{yy}-{mm}-{dd}"
             if hh is not None:
                 r.purchase_time = f"{hh}:{mi}:{ss}"
+
+    # --- currency: Bulgaria adopted the euro 2026-01-01. Pre-2026 Lidl receipts
+    #     print amounts in BGN (with a EUR equivalent in parens); from 2026 they
+    #     print EUR. The OCR'd "# BGN #/# Евро #" header is unreliable, so key off
+    #     the date. build_db converts BGN amounts to EUR at BGN_PER_EUR. Unknown
+    #     date (no parse) defaults to EUR (only recent receipts lack a date). ---
+    r.currency = "EUR" if (r.purchase_date is None
+                           or r.purchase_date >= "2026-01-01") else "BGN"
 
     if m := COUNT_RE.search(text):
         r.item_count_hint = int(m.group(1))
