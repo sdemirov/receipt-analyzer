@@ -1,8 +1,18 @@
 # Extraction
 
-Module: [`extract/parse.py`](../extract/parse.py). Input: one receipt PDF.
+Module: [`extract/parse.py`](../extract/parse.py). Input: one **Kaufland** receipt PDF.
 Output: a `ParsedReceipt` dataclass. No OCR — the PDFs are digital text read with
 **pdfplumber** (`page.extract_text()`); Cyrillic comes through as UTF-8.
+
+> **Lidl PNG receipts** take a different front end but the SAME `ParsedReceipt`
+> output: [`extract/ocr.py`](../extract/ocr.py) OCRs the photo with Tesseract
+> (`lang="bul+eng"`, run inside the Docker container) and
+> [`extract/parse_lidl.py`](../extract/parse_lidl.py) parses the (noisy) text. Key
+> layout differences: the quantity line precedes the item name, the item region runs
+> from the `Касиер` header to `МЕЖДИННА СУМА`, currency is EUR, and prices/VAT/UNP are
+> OCR-noisy (the parser tolerates space-in-price, optional product codes/VAT letters,
+> and falls back to the filename as the dedup key when the `УНП:` line is lost). See
+> the design + plan under `docs/superpowers/`.
 
 ## Anatomy of a receipt
 

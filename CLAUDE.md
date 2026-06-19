@@ -3,10 +3,16 @@
 Guidance for future Claude sessions working on this project.
 
 ## What this is
-Extracts products & prices from Bulgarian grocery-store **digital receipt PDFs** (text,
-no OCR) into SQLite, and serves a **React + FastAPI** web app: price-over-time
-charts, spending analytics, click-a-point → receipt modal (items / extracted text
-/ in-app PDF), bilingual search, and a product-rename editor.
+Extracts products & prices from Bulgarian grocery-store receipts into SQLite, and
+serves a **React + FastAPI** web app: price-over-time charts, spending analytics,
+click-a-point → receipt modal (items / extracted text / in-app PDF or image),
+bilingual search, and a product-rename editor.
+
+Two receipt sources:
+- **Kaufland** — **digital receipt PDFs** (text, no OCR), parsed by `extract/parse.py`.
+- **Lidl** — **PNG photos** (`*.png` in the same `RECEIPTS_DIR`), OCR'd with Tesseract
+  (`bul+eng`) **inside the Docker container** and parsed by `extract/parse_lidl.py`.
+  See the "Lidl PNG receipts" section below.
 
 There is **no Streamlit app** — it was removed on 2026-06-18. The single front-end
 is `web/` (React). Don't re-introduce Streamlit/Plotly/Altair/pandas unless asked.
@@ -17,11 +23,12 @@ is `web/` (React). Don't re-introduce Streamlit/Plotly/Altair/pandas unless aske
   here.
 - **The receipt PDFs are on Google Drive**: `C:\Users\s.demirov\My Drive\1Kaufland Receipts`
   (`RECEIPTS_DIR` in `config.py`; was `G:\My Drive\…` — moved 2026-06-18). It's still
-  a Google-Drive virtual folder, so it can **transiently unmount** (you may see
+a Google-Drive virtual folder, so it can **transiently unmount** (you may see
   "folder deleted" / 0 PDFs) — a mount glitch, NOT data loss. Only `build_db.main()`
   and `tools/rename_pdfs.py` read the PDFs; everything else (API, rename, search,
   receipt preview) uses files in the project `data/` on `C:` and works regardless.
-- No git repo here.
+- Git repo **does** exist here (GitHub `origin` = sdemirov/receipt-analyzer; default
+  branch `main`). The Lidl-PNG work was done on `feature/lidl-png-extraction`.
 
 ## Layout
 ```
@@ -89,6 +96,31 @@ PDFs or editing CSVs: `./venv/Scripts/python.exe -m extract.build_db`.
 - **Promo**: from `Вие спестявате` receipt lines → per-line `on_promo`; gold "%"
   markers on the chart.
 
+## Lidl PNG receipts (added 2026-06-19)
+- **Source**: `*.png` photos in the same `RECEIPTS_DIR` as the Kaufland PDFs;
+  `build_db.parse_all()` routes by extension (`.pdf`→`parse_receipt`, `.png`→`parse_lidl`).
+- **OCR runs in Docker**: `Dockerfile` installs `tesseract-ocr` + `tesseract-ocr-bul`;
+  `extract/ocr.py` (`Pillow` preprocess + `pytesseract`, **`lang="bul+eng"`** — receipts
+  mix Cyrillic and Latin brand names like `SCHWEPPES`/`NESPRESSO`, so bul-only mangles
+  them). `docker-compose.yml` mounts the receipts folder read-only at `/receipts` and
+  sets `RECEIPTS_DIR=/receipts`. **Run the build in the container**:
+  `docker compose run --rm app python -m extract.build_db`.
+- **Parser** (`extract/parse_lidl.py`) returns the SAME `ParsedReceipt`/`LineItem`
+  as the PDF path. Lidl layout vs Kaufland: qty line (`2,00 x 0,97`) **precedes** the
+  item; item region is between the `Касиер` header line and `МЕЖДИННА СУМА`; totals are
+  `МЕЖДИННА/ОБЩА СУМА`; currency is EUR. OCR is noisy, so the parser is tolerant
+  (space-in-price `3, 06`, trailing digits, optional product code + VAT letter,
+  `В→Б` VAT fixups) and **falls back to the filename as the UNP** when OCR drops the
+  `УНП:` line (else dedup would drop the receipt — 38/43 lack a clean УНП line).
+- **Preview**: PNG bytes are stored in `receipt_pdfs` with a `media_type` column;
+  the API serves them with that type and the React modal shows an `<img>` ("Снимка"
+  tab) instead of the PDF `<iframe>`.
+- **Quality**: OCR is imperfect; `build_db` prints `[check]` lines (parsed item count
+  vs the `N АРТИКУЛА` hint; line-total sum vs total — **PNG-only**) and unmatched item
+  lines go to `data/unparsed_lines.log`. Tests: `tests/test_parse_lidl*.py` run on the
+  host against 43 real OCR-text fixtures in `tests/fixtures/lidl_ocr/` (no tesseract
+  needed). Design/plan: `docs/superpowers/specs|plans/2026-06-19-lidl-png-*`.
+
 ## Gotchas / conventions
 - Use **git bash** (Bash tool) for shell work per the user's global CLAUDE.md;
   PowerShell only for Windows-native needs (e.g. `Get-NetTCPConnection` to free a
@@ -103,9 +135,10 @@ PDFs or editing CSVs: `./venv/Scripts/python.exe -m extract.build_db`.
   `Stop-Process` before restarting. The API reads the DB per request, so data
   changes need no API restart (just refresh the browser); CODE changes need a
   restart.
-- The current dataset (2026-06-18): 243 PDFs → 236 receipts, 3122 line_items,
-  1066 products, 0 unparsed (spans 2023-05-25 → 2026-06-17). Counts grow as
-  receipts are added. (EUR receipts were 0-items until the `Цена EUR` fix.)
+- The current dataset (2026-06-19): 243 Kaufland PDFs + 43 Lidl PNGs → **279
+  receipts, 4018 line_items, 1415 products**, 11 unparsed (spans 2021-06-19 →
+  2026-06-17). Counts grow as receipts are added. (EUR receipts were 0-items until
+  the `Цена EUR` fix; the 43 Lidl PNGs add ~896 line_items.)
 
 ## Verifying changes
 - Pipeline: `./venv/Scripts/python.exe -m extract.build_db` (expect counts above,
