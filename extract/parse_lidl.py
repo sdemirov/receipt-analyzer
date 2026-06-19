@@ -99,6 +99,17 @@ def _norm_unp(raw: str) -> str:
     return v
 
 
+def _fix_month(mm: str) -> Optional[str]:
+    """Return a valid 2-digit month or None. OCR often misreads the leading 0 of a
+    single-digit month (01-09) as 8/9/6 on thermal print ('09'->'89'). When the
+    month is otherwise impossible, assume the leading digit was a misread zero."""
+    if 1 <= int(mm) <= 12:
+        return mm
+    if mm[1] in "123456789":     # "89"->"09", "85"->"05"
+        return "0" + mm[1]
+    return None
+
+
 def parse_lidl_text(text: str, source: str) -> ParsedReceipt:
     text = _sanitize_text(text)
     lines = [ln.strip() for ln in text.splitlines()]
@@ -116,12 +127,14 @@ def parse_lidl_text(text: str, source: str) -> ParsedReceipt:
     #     dot-format "DD.MM.20YY" summary line for the date. ---
     if m := DATE_FOOTER_RE.search(text):
         dd, mm, yy, hh, mi, ss = m.groups()
-        if 1 <= int(dd) <= 31 and 1 <= int(mm) <= 12:
+        mm = _fix_month(mm)
+        if mm and 1 <= int(dd) <= 31:
             r.purchase_date = f"20{yy}-{mm}-{dd}"
             r.purchase_time = f"{hh}:{mi}:{ss}"
     if r.purchase_date is None and (m := DATE_RE.search(text)):
         dd, mm, yy, hh, mi, ss = m.groups()
-        if 1 <= int(dd) <= 31 and 1 <= int(mm) <= 12:
+        mm = _fix_month(mm)
+        if mm and 1 <= int(dd) <= 31:
             r.purchase_date = f"{yy}-{mm}-{dd}"
             if hh is not None:
                 r.purchase_time = f"{hh}:{mi}:{ss}"

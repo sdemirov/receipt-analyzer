@@ -34,13 +34,22 @@ def test_spaced_footer_date_and_time():
     assert r.purchase_time == "12:46:59"
 
 
+def test_ocr_misread_month_recovered():
+    """OCR read the '0' of month 09 as 8 ('#22 /89/23 20 :31:16#'); the impossible
+    month is corrected back to a leading-zero month."""
+    r = _load("file_000_9")
+    assert r.purchase_date == "2023-09-22"
+    assert r.purchase_time == "20:31:16"
+
+
 def test_date_coverage_high():
-    """With the space-tolerant footer, nearly every fixture yields a date+time."""
+    """With the space-tolerant footer + month correction, every fixture yields
+    a date and time."""
     parsed = [_load(n) for n in _all_fixtures()]
     with_date = sum(p.purchase_date is not None for p in parsed)
     with_time = sum(p.purchase_time is not None for p in parsed)
-    assert with_date >= 41          # was 39 before the footer fix
-    assert with_time >= 41          # time was previously never set for Lidl
+    assert with_date == 43          # was 39 before the footer fix
+    assert with_time == 43          # time was previously never set for Lidl
 
 
 # Receipts so degraded by OCR that they cannot yield a usable item region or
