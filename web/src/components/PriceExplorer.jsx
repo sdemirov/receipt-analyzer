@@ -43,10 +43,12 @@ function PriceTooltip({ active, payload, label, names }) {
       <div className="tt-date">{label}</div>
       {payload.map((s) => {
         const promo = s.payload[`${s.dataKey}_promo`];
+        const store = s.payload[`${s.dataKey}_store`];
         return (
           <div key={s.dataKey} className="tt-row">
             <i style={{ background: s.color }} />
             <span>{names[s.dataKey]}: <b>{Number(s.value).toFixed(2)} €</b></span>
+            {store && <span className="tt-store">🏬 {store.replace("Хипермаркет ", "")}</span>}
             {promo && (
               <span className="tt-promo">
                 🏷 промоция −{promo.saving.toFixed(2)} € (редовна {promo.regular.toFixed(2)} €)
@@ -126,6 +128,7 @@ export default function PriceExplorer({ selected, setSelected, hidden, setHidden
         const row = byDate.get(pt.date);
         row[p.id] = pt.unit_price;
         row[`${p.id}_rid`] = pt.receipt_id;
+        row[`${p.id}_store`] = pt.store_name;
         if (pt.on_promo) row[`${p.id}_promo`] = { saving: pt.promo_saving, regular: pt.regular_price };
       }
     }

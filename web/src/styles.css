@@ -94,6 +94,7 @@ body {
 .tt-row { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin: 2px 0; }
 .tt-row i { width: 9px; height: 9px; border-radius: 50%; display: inline-block; }
 .tt-promo { width: 100%; color: #b8860b; font-weight: 600; padding-left: 15px; }
+.tt-store { width: 100%; color: var(--muted); font-size: 12px; padding-left: 15px; }
 .promo-hint { font-size: 12px; color: var(--muted); margin: 0 0 8px; }
 .promo-hint b { color: #b8860b; }
 

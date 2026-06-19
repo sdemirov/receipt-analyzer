@@ -196,7 +196,8 @@ def product_prices(
                     li.on_promo      AS on_promo,
                     li.promo_saving  AS promo_saving,
                     ROUND(li.unit_price + li.promo_saving / li.qty, 2) AS regular_price,
-                    r.branch_id      AS branch
+                    r.branch_id      AS branch,
+                    r.store_name     AS store_name
              FROM line_items li JOIN receipts r ON r.id = li.receipt_id
              WHERE li.product_id = ?"""
     params: list = [product_id]
