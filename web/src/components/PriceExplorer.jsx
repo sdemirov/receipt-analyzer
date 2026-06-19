@@ -44,10 +44,12 @@ function PriceTooltip({ active, payload, label, names }) {
       {payload.map((s) => {
         const promo = s.payload[`${s.dataKey}_promo`];
         const store = s.payload[`${s.dataKey}_store`];
+        const kg = s.payload[`${s.dataKey}_kg`];
         return (
           <div key={s.dataKey} className="tt-row">
             <i style={{ background: s.color }} />
             <span>{names[s.dataKey]}: <b>{Number(s.value).toFixed(2)} €</b></span>
+            {kg && <span className="tt-store">{kg.qty} кг @ {kg.perKg.toFixed(2)} €/кг</span>}
             {store && <span className="tt-store">🏬 {store.replace("Хипермаркет ", "")}</span>}
             {promo && (
               <span className="tt-promo">
@@ -126,9 +128,13 @@ export default function PriceExplorer({ selected, setSelected, hidden, setHidden
       for (const pt of series[p.id] || []) {
         if (!byDate.has(pt.date)) byDate.set(pt.date, { date: pt.date });
         const row = byDate.get(pt.date);
-        row[p.id] = pt.unit_price;
+        // Weighed items: plot the amount actually paid (line total); piece items:
+        // the per-unit price (comparable across multipacks).
+        const kg = pt.unit_measure === "kg";
+        row[p.id] = kg ? pt.line_total : pt.unit_price;
         row[`${p.id}_rid`] = pt.receipt_id;
         row[`${p.id}_store`] = pt.store_name;
+        if (kg) row[`${p.id}_kg`] = { qty: pt.qty, perKg: pt.unit_price };
         if (pt.on_promo) row[`${p.id}_promo`] = { saving: pt.promo_saving, regular: pt.regular_price };
       }
     }
