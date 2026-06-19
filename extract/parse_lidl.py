@@ -42,9 +42,12 @@ def _money(s: str) -> float:
 
 # --- metadata patterns -------------------------------------------------------
 UNP_RE = re.compile(r"УНП[:\s]+([A-Za-zА-Яа-я0-9@-]+)")
-DATE_RE = re.compile(r"\b(\d{2})\.(\d{2})\.(20\d{2})\b")
-# footer fallback: "#05/04/26 18:14:35#"  (2-digit year)
-DATE_FOOTER_RE = re.compile(r"#?(\d{2})/(\d{2})/(\d{2})\s+\d{2}:\d{2}")
+DATE_RE = re.compile(
+    r"\b(\d{2})\.(\d{2})\.(20\d{2})(?:\s+(\d{2})\s*:\s*(\d{2})\s*:\s*(\d{2}))?")
+# footer line: "#05/04/26 18:14:35#" (2-digit year, has the time). OCR sprinkles
+# stray spaces around the slashes/colons ("01 /04/23 12:46 :59"), so tolerate them.
+DATE_FOOTER_RE = re.compile(
+    r"(\d{2})\s*/\s*(\d{2})\s*/\s*(\d{2})\s+(\d{2})\s*:\s*(\d{2})\s*:\s*(\d{2})")
 COUNT_RE = re.compile(r"(\d+)\s+АРТИКУЛ")
 SUBTOTAL_RE = re.compile(r"МЕЖДИННА\s+СУМА\s+(" + _MONEY + r")")
 TOTAL_RE = re.compile(r"ОБЩА\s+СУМА\s+(" + _MONEY + r")")
@@ -108,15 +111,20 @@ def parse_lidl_text(text: str, source: str) -> ParsedReceipt:
     else:
         r.unp = source  # filename fallback: PNGs are unique photos
 
-    # --- date: DD.MM.YYYY, else #DD/MM/YY footer ---
-    if m := DATE_RE.search(text):
-        dd, mm, yy = m.groups()
-        if 1 <= int(dd) <= 31 and 1 <= int(mm) <= 12:
-            r.purchase_date = f"{yy}-{mm}-{dd}"
-    if r.purchase_date is None and (m := DATE_FOOTER_RE.search(text)):
-        dd, mm, yy = m.groups()
+    # --- date/time: prefer the footer "#DD/MM/YY HH:MM:SS#" (present on nearly
+    #     all receipts and the only place with the time); fall back to the
+    #     dot-format "DD.MM.20YY" summary line for the date. ---
+    if m := DATE_FOOTER_RE.search(text):
+        dd, mm, yy, hh, mi, ss = m.groups()
         if 1 <= int(dd) <= 31 and 1 <= int(mm) <= 12:
             r.purchase_date = f"20{yy}-{mm}-{dd}"
+            r.purchase_time = f"{hh}:{mi}:{ss}"
+    if r.purchase_date is None and (m := DATE_RE.search(text)):
+        dd, mm, yy, hh, mi, ss = m.groups()
+        if 1 <= int(dd) <= 31 and 1 <= int(mm) <= 12:
+            r.purchase_date = f"{yy}-{mm}-{dd}"
+            if hh is not None:
+                r.purchase_time = f"{hh}:{mi}:{ss}"
 
     if m := COUNT_RE.search(text):
         r.item_count_hint = int(m.group(1))

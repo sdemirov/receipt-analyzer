@@ -26,6 +26,23 @@ def _all_fixtures():
     return sorted(p.name for p in FIX_DIR.glob("file_*.txt"))
 
 
+def test_spaced_footer_date_and_time():
+    """OCR sprinkles spaces in the footer timestamp ('#01 /04/23 12:46 :59#').
+    The parser must still recover date + time."""
+    r = _load("file_000_31")
+    assert r.purchase_date == "2023-04-01"
+    assert r.purchase_time == "12:46:59"
+
+
+def test_date_coverage_high():
+    """With the space-tolerant footer, nearly every fixture yields a date+time."""
+    parsed = [_load(n) for n in _all_fixtures()]
+    with_date = sum(p.purchase_date is not None for p in parsed)
+    with_time = sum(p.purchase_time is not None for p in parsed)
+    assert with_date >= 41          # was 39 before the footer fix
+    assert with_time >= 41          # time was previously never set for Lidl
+
+
 # Receipts so degraded by OCR that they cannot yield a usable item region or
 # >=1 item. Keep this as small as possible; each entry needs a documented reason.
 DENYLIST: dict[str, str] = {
