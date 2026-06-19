@@ -221,7 +221,10 @@ def main() -> None:
         if r.item_count_hint and len(r.items) != r.item_count_hint:
             print(f"  [check] {r.source_pdf}: parsed {len(r.items)} items "
                   f"but receipt says {r.item_count_hint}")
-        if r.total and r.items:
+        # Only Lidl PNGs have item prices that should sum to the grand total.
+        # Kaufland PDFs print a total that is net of card/promo savings, so
+        # sum(line_total) == subtotal there, not total -- skip them.
+        if r.total and r.items and r.source_pdf.lower().endswith(".png"):
             s = round(sum(it.line_total for it in r.items), 2)
             if abs(s - r.total) > 0.05:
                 print(f"  [check] {r.source_pdf}: items sum {s} != total {r.total}")

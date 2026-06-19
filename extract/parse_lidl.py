@@ -1,9 +1,17 @@
-"""Parse a Lidl receipt PNG (via OCR) into the shared ParsedReceipt model.
+"""Parse a Lidl receipt PNG (via bul+eng OCR) into the shared ParsedReceipt model.
 
-Lidl layout differs from Kaufland: the quantity line ("2,00 x 0,97") PRECEDES
+Lidl layout differs from Kaufland: the quantity line ("2,000 x 0,97") PRECEDES
 the item's name+total line, totals are "МЕЖДИННА СУМА"/"ОБЩА СУМА", currency is
-EUR ("Евро" header). OCR is noisy (0<->д<->8, Б often read as В), so patterns are
-tolerant and amounts accept both ',' and '.' decimals.
+EUR. Real OCR is noisy, so this module is deliberately tolerant:
+
+  * UNP is normalized (`@`->`0`, Cyrillic `ВМ`->Latin `BN`) and, when the `УНП:`
+    line is missing (it is dropped on ~38/43 receipts), falls back to the source
+    filename so the receipt is never lost by build_db's dedup.
+  * The item region is anchored on the cashier header line (always contains
+    "Касиер"/"Kacuep") and ends at "МЕЖДИННА СУМА" / "ОБЩА СУМА".
+  * Prices accept ',' or '.', one optional space after the separator, trailing
+    extra digits, and leading OCR confusions (д/й/@ -> 0).
+  * VAT letters are normalized to canonical Cyrillic classes (В/B -> Б, etc).
 """
 from __future__ import annotations
 
@@ -14,27 +22,78 @@ from typing import Optional
 from extract.parse import (LineItem, ParsedReceipt, _sanitize_name,
                            _sanitize_text)
 
-UNP_RE = re.compile(r"УНП[:\s]+([A-Za-zА-Яа-я0-9-]+)")
-DATE_RE = re.compile(r"\b(\d{2})\.(\d{2})\.(20\d{2})\b")
-COUNT_RE = re.compile(r"(\d+)\s+АРТИКУЛ")
-SUBTOTAL_RE = re.compile(r"МЕЖДИННА\s+СУМА\s+(\d+[.,]\d{2})")
-TOTAL_RE = re.compile(r"ОБЩА\s+СУМА\s+(\d+[.,]\d{2})")
-STORE_RE = re.compile(r"Лидл[^\n]*")
-
-# item-region boundaries
-ITEM_START_RE = re.compile(r"Евро")                       # currency header line
-ITEM_END_RE = re.compile(r"^(МЕЖДИННА|ОБЩА)\s+СУМА")
-# a qty line:  "2,00 x 0,97"  (x / х / *)
-QTY_RE = re.compile(r"^(?P<qty>\d+)[.,]\d{2,3}\s*[xх*]\s*(?P<unit>\d+[.,]\d{2})$")
-# an item line: "<name> <amount> <VAT-letter>"
-ITEM_RE = re.compile(r"^(?P<name>.+?)\s+(?P<amt>\d+[.,]\d{2})\s+(?P<vat>[А-Я])$")
-PAY_CARD_RE = re.compile(r"КАРТ", re.I)
-PAY_CASH_RE = re.compile(r"В\s*БРОЙ", re.I)
-VAT_FIX = {"В": "Б"}  # common OCR confusion: В read where Б was printed
+# --- money helper ------------------------------------------------------------
+# A price/total: 1-4 digits, separator, ONE optional space, 2 digits, then any
+# extra digits (e.g. "2,990" -> 2.99). Leading digit may be an OCR'd д/й/@ = 0.
+_MONEY = r"[\dдй@]\d{0,3}[.,]\s?\d{2}\d*"
 
 
 def _money(s: str) -> float:
-    return float(s.replace(",", "."))
+    """Parse a noisy OCR amount string into a float."""
+    s = (s.replace(" ", "")
+          .replace("д", "0").replace("й", "0").replace("@", "0")
+          .replace(",", "."))
+    # collapse "2.990" style (3+ fractional digits) back to 2 decimals
+    if "." in s:
+        whole, frac = s.split(".", 1)
+        s = f"{whole}.{frac[:2]}"
+    return float(s)
+
+
+# --- metadata patterns -------------------------------------------------------
+UNP_RE = re.compile(r"УНП[:\s]+([A-Za-zА-Яа-я0-9@-]+)")
+DATE_RE = re.compile(r"\b(\d{2})\.(\d{2})\.(20\d{2})\b")
+# footer fallback: "#05/04/26 18:14:35#"  (2-digit year)
+DATE_FOOTER_RE = re.compile(r"#?(\d{2})/(\d{2})/(\d{2})\s+\d{2}:\d{2}")
+COUNT_RE = re.compile(r"(\d+)\s+АРТИКУЛ")
+SUBTOTAL_RE = re.compile(r"МЕЖДИННА\s+СУМА\s+(" + _MONEY + r")")
+TOTAL_RE = re.compile(r"ОБЩА\s+СУМА\s+(" + _MONEY + r")")
+STORE_RE = re.compile(r"Лидл[^\n]*")
+PAY_CARD_RE = re.compile(r"КАРТ", re.I)
+PAY_CASH_RE = re.compile(r"В\s*БРОЙ", re.I)
+
+# --- item-region patterns ----------------------------------------------------
+# Cashier header line, robust to OCR: "Касиер:9" / "Kacuep :84" (mixed scripts).
+CASHIER_RE = re.compile(r"[КK][аa][сc][иu][еe][рp]")
+# Old currency-header fallback (only used if no cashier line is found).
+CURRENCY_HDR_RE = re.compile(r"Евро|EBpo|BGN|EUR|Всм")
+ITEM_END_RE = re.compile(r"^(МЕЖДИННА|ОБЩА)\s+СУМА")
+
+# qty/multipack line: "2,000 x 0,97", "д,306 x 31,89", "@,223 x 31,89".
+# x may be Latin x, Cyrillic х, or *.
+QTY_RE = re.compile(
+    r"^(?P<qty>[\dдй@]{1,5}[.,]\s?\d{2,5})\s*[xх*]\s*(?P<unit>" + _MONEY + r")\s*$")
+# item line: name, optional embedded product code (5-7 digits, maybe quoted),
+# price, optional trailing VAT letter.
+ITEM_RE = re.compile(
+    r"^(?P<name>.+?)\s+(?:[\"']?\d{5,7}\s+)?(?P<amt>" + _MONEY + r")"
+    r"(?:\s+(?P<vat>[А-ЯA-Zа-я]))?\s*$")
+# trailing product-code run to strip from a name
+CODE_TAIL_RE = re.compile(r"[\"']?\d{5,7}\s*$")
+# lines inside the region that are NOT items
+DECOR_RE = re.compile(r"^#")                       # "# Евро #", "#1191 ..."
+PROMO_RE = re.compile(r"промоци|ОТСТЪПК|Plus|купон", re.I)
+
+# VAT normalization: map OCR/letter variants to canonical Cyrillic classes.
+# Lidl's dominant class is Б (20%); anything unrecognised defaults to it.
+VAT_MAP = {
+    "Б": "Б", "А": "А", "Г": "Г",
+    "В": "Б",            # OCR confuses printed Б as Cyrillic В
+    "B": "Б", "A": "А",  # Latin look-alikes
+}
+
+
+def _norm_vat(letter: Optional[str]) -> str:
+    if not letter:
+        return "Б"
+    return VAT_MAP.get(letter.upper(), "Б")
+
+
+def _norm_unp(raw: str) -> str:
+    v = raw.replace("@", "0")
+    # leading Cyrillic ВМ / Вм / ВN (OCR of Latin BN) -> BN
+    v = re.sub(r"^[ВвB][МмNn]", "BN", v)
+    return v
 
 
 def parse_lidl_text(text: str, source: str) -> ParsedReceipt:
@@ -43,12 +102,22 @@ def parse_lidl_text(text: str, source: str) -> ParsedReceipt:
     r = ParsedReceipt(source_pdf=source, raw_text=text,
                       currency="EUR", store_name="Лидл")
 
+    # --- UNP (never None) ---
     if m := UNP_RE.search(text):
-        r.unp = m.group(1)
+        r.unp = _norm_unp(m.group(1))
+    else:
+        r.unp = source  # filename fallback: PNGs are unique photos
+
+    # --- date: DD.MM.YYYY, else #DD/MM/YY footer ---
     if m := DATE_RE.search(text):
         dd, mm, yy = m.groups()
         if 1 <= int(dd) <= 31 and 1 <= int(mm) <= 12:
             r.purchase_date = f"{yy}-{mm}-{dd}"
+    if r.purchase_date is None and (m := DATE_FOOTER_RE.search(text)):
+        dd, mm, yy = m.groups()
+        if 1 <= int(dd) <= 31 and 1 <= int(mm) <= 12:
+            r.purchase_date = f"20{yy}-{mm}-{dd}"
+
     if m := COUNT_RE.search(text):
         r.item_count_hint = int(m.group(1))
     if m := STORE_RE.search(text):
@@ -66,8 +135,12 @@ def parse_lidl_text(text: str, source: str) -> ParsedReceipt:
     elif PAY_CASH_RE.search(text):
         r.payment_method = "В брой"
 
-    # locate item region
-    start = next((i for i, ln in enumerate(lines) if ITEM_START_RE.search(ln)), None)
+    # --- locate item region ---
+    start = next((i for i, ln in enumerate(lines) if CASHIER_RE.search(ln)), None)
+    if start is None:
+        # fall back to old currency-header anchor so nothing regresses
+        start = next((i for i, ln in enumerate(lines)
+                      if CURRENCY_HDR_RE.search(ln)), None)
     if start is None:
         return r
     end = len(lines)
@@ -76,19 +149,26 @@ def parse_lidl_text(text: str, source: str) -> ParsedReceipt:
             end = i
             break
 
-    pending: Optional[tuple[int, float]] = None
+    pending: Optional[tuple[float, float]] = None
     for line in lines[start + 1:end]:
         if not line:
+            continue                       # blank: keep pending (qty -> blank -> item)
+        if DECOR_RE.match(line):
+            continue                       # currency header / "#..." decoration
+        if PROMO_RE.search(line):
+            pending = None                 # promo/discount: not an item, drop pairing
             continue
         if m := QTY_RE.match(line):
-            pending = (int(m.group("qty")), _money(m.group("unit")))
+            pending = (_money(m.group("qty")), _money(m.group("unit")))
             continue
         if m := ITEM_RE.match(line):
             amt = _money(m.group("amt"))
-            vat = VAT_FIX.get(m.group("vat"), m.group("vat"))
-            name = _sanitize_name(m.group("name"))
+            vat = _norm_vat(m.group("vat"))
+            name = CODE_TAIL_RE.sub("", m.group("name"))
+            name = _sanitize_name(name).strip(' "\'')
             if pending:
                 qty, unit = pending
+                # printed amount is the line total; keep parsed qty/unit
                 r.items.append(LineItem(name, qty, unit, amt, vat))
             else:
                 r.items.append(LineItem(name, 1, amt, amt, vat))
