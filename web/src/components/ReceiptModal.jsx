@@ -7,10 +7,12 @@ export default function ReceiptModal({ rid, onClose, selectedIds = new Set(), on
   const [data, setData] = useState(null);
   const [tab, setTab] = useState("items");
   const [error, setError] = useState(false);
+  const [zoom, setZoom] = useState(1);   // image preview zoom factor (1 = fit width)
 
   useEffect(() => {
     setData(null);
     setError(false);
+    setZoom(1);
     api.receipt(rid).then(setData).catch(() => setError(true));
   }, [rid]);
 
@@ -109,9 +111,24 @@ export default function ReceiptModal({ rid, onClose, selectedIds = new Set(), on
                   <div className="pdf-actions">
                     <a href={api.pdfUrl(rid)} target="_blank" rel="noreferrer">Отвори в нов раздел ↗</a>
                     <a href={api.pdfUrl(rid)} download={`${r.purchase_date || "receipt"}${isImage ? ".png" : ".pdf"}`}>⬇ Изтегли {isImage ? "снимка" : "PDF"}</a>
+                    {isImage && (
+                      <span className="img-zoom" onMouseDown={(e) => e.stopPropagation()}>
+                        <button onClick={() => setZoom((z) => Math.max(1, +(z - 0.5).toFixed(2)))} disabled={zoom <= 1} title="Намали">−</button>
+                        <span className="img-zoom-level">{Math.round(zoom * 100)}%</span>
+                        <button onClick={() => setZoom((z) => Math.min(5, +(z + 0.5).toFixed(2)))} title="Увеличи">+</button>
+                      </span>
+                    )}
                   </div>
                   {isImage
-                    ? <img className="pdf-frame" alt="receipt" src={api.pdfUrl(rid)} style={{ width: "100%", objectFit: "contain" }} />
+                    ? <div className="img-scroll" style={{ overflow: "auto", maxHeight: "70vh" }}>
+                        <img
+                          alt="receipt"
+                          src={api.pdfUrl(rid)}
+                          onClick={() => setZoom((z) => (z >= 3 ? 1 : +(z + 1).toFixed(2)))}
+                          style={{ width: `${zoom * 100}%`, cursor: zoom > 1 ? "zoom-out" : "zoom-in", display: "block" }}
+                          title="Кликни за увеличение/намаление"
+                        />
+                      </div>
                     : <iframe className="pdf-frame" title="receipt pdf" src={api.pdfUrl(rid)} />}
                 </div>
               )}
