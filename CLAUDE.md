@@ -108,7 +108,9 @@ PDFs or editing CSVs: `./venv/Scripts/python.exe -m extract.build_db`.
 - **Parser** (`extract/parse_lidl.py`) returns the SAME `ParsedReceipt`/`LineItem`
   as the PDF path. Lidl layout vs Kaufland: qty line (`2,00 x 0,97`) **precedes** the
   item; item region is between the `Касиер` header line and `МЕЖДИННА СУМА`; totals are
-  `МЕЖДИННА/ОБЩА СУМА`; currency is EUR. OCR is noisy, so the parser is tolerant
+  `МЕЖДИННА/ОБЩА СУМА`. **Currency keys off the date** (the OCR'd `# BGN #`/`# Евро #`
+  header is unreliable): pre-2026 receipts are **BGN** (converted to EUR by `build_db`
+  at 1.9558, like Kaufland), 2026+ are EUR. OCR is noisy, so the parser is tolerant
   (space-in-price `3, 06`, trailing digits, optional product code + VAT letter,
   `В→Б` VAT fixups) and **falls back to the filename as the UNP** when OCR drops the
   `УНП:` line (else dedup would drop the receipt — 38/43 lack a clean УНП line).
