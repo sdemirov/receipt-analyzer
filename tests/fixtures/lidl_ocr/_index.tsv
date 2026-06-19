@@ -1,43 +1,43 @@
-file_000_1.txt	total=21.98	hint=13	src=Файл_000 (1).png
-file_000_10.txt	total=None	hint=18	src=Файл_000 (10).png
-file_000_11.txt	total=36.42	hint=9	src=Файл_000 (11).png
-file_000_12.txt	total=128.2	hint=26	src=Файл_000 (12).png
-file_000_13.txt	total=152.09	hint=33	src=Файл_000 (13).png
-file_000_14.txt	total=229.43	hint=25	src=Файл_000 (14).png
-file_000_15.txt	total=None	hint=32	src=Файл_000 (15).png
-file_000_16.txt	total=None	hint=19	src=Файл_000 (16).png
-file_000_17.txt	total=None	hint=15	src=Файл_000 (17).png
-file_000_18.txt	total=None	hint=198	src=Файл_000 (18).png
-file_000_19.txt	total=143.25	hint=32	src=Файл_000 (19).png
-file_000_2.txt	total=None	hint=4	src=Файл_000 (2).png
-file_000_20.txt	total=137.36	hint=26	src=Файл_000 (20).png
-file_000_21.txt	total=None	hint=23	src=Файл_000 (21).png
-file_000_22.txt	total=129.38	hint=27	src=Файл_000 (22).png
-file_000_23.txt	total=None	hint=28	src=Файл_000 (23).png
-file_000_24.txt	total=None	hint=20	src=Файл_000 (24).png
-file_000_25.txt	total=None	hint=31	src=Файл_000 (25).png
-file_000_26.txt	total=None	hint=11	src=Файл_000 (26).png
-file_000_27.txt	total=59.41	hint=15	src=Файл_000 (27).png
-file_000_28.txt	total=None	hint=26	src=Файл_000 (28).png
-file_000_29.txt	total=None	hint=31	src=Файл_000 (29).png
-file_000_3.txt	total=None	hint=19	src=Файл_000 (3).png
-file_000_30.txt	total=122.96	hint=38	src=Файл_000 (30).png
-file_000_31.txt	total=None	hint=30	src=Файл_000 (31).png
-file_000_32.txt	total=None	hint=23	src=Файл_000 (32).png
-file_000_33.txt	total=None	hint=30	src=Файл_000 (33).png
-file_000_34.txt	total=None	hint=25	src=Файл_000 (34).png
-file_000_35.txt	total=None	hint=31	src=Файл_000 (35).png
-file_000_36.txt	total=None	hint=21	src=Файл_000 (36).png
-file_000_37.txt	total=72.28	hint=17	src=Файл_000 (37).png
-file_000_38.txt	total=195.04	hint=23	src=Файл_000 (38).png
-file_000_39.txt	total=132.54	hint=?	src=Файл_000 (39).png
-file_000_4.txt	total=None	hint=19	src=Файл_000 (4).png
-file_000_40.txt	total=15.17	hint=?	src=Файл_000 (40).png
-file_000_41.txt	total=5.34	hint=?	src=Файл_000 (41).png
-file_000_42.txt	total=None	hint=20	src=Файл_000 (42).png
-file_000_5.txt	total=36.97	hint=3	src=Файл_000 (5).png
-file_000_6.txt	total=None	hint=15	src=Файл_000 (6).png
-file_000_7.txt	total=197.65	hint=18	src=Файл_000 (7).png
-file_000_8.txt	total=79.46	hint=15	src=Файл_000 (8).png
-file_000_9.txt	total=None	hint=26	src=Файл_000 (9).png
-file_000.txt	total=44.37	hint=20	src=Файл_000.png
+file_000.txt	hint=20	total=44,37	unp=NO-UNP-LINE
+file_000_1.txt	hint=13	total=21,98	unp=ВМд13286-0009-0559315
+file_000_10.txt	hint=18	total=93,74	unp=NO-UNP-LINE
+file_000_11.txt	hint=9	total=36,42	unp=NO-UNP-LINE
+file_000_12.txt	hint=26	total=128,20	unp=NO-UNP-LINE
+file_000_13.txt	hint=33	total=152,09	unp=NO-UNP-LINE
+file_000_14.txt	hint=25	total=229,43	unp=NO-UNP-LINE
+file_000_15.txt	hint=32	total=146,76	unp=NO-UNP-LINE
+file_000_16.txt	hint=19	total=51,84	unp=NO-UNP-LINE
+file_000_17.txt	hint=15	total=67,53	unp=NO-UNP-LINE
+file_000_18.txt	hint=198	total=32,76	unp=BN@12761-8028-8357744
+file_000_19.txt	hint=32	total=143,25	unp=BN@12763-8013-8602324
+file_000_2.txt	hint=4	total=8,06	unp=NO-UNP-LINE
+file_000_20.txt	hint=26	total=137,36	unp=NO-UNP-LINE
+file_000_21.txt	hint=23	total=98,72	unp=NO-UNP-LINE
+file_000_22.txt	hint=27	total=129,38	unp=NO-UNP-LINE
+file_000_23.txt	hint=28	total=175,40	unp=NO-UNP-LINE
+file_000_24.txt	hint=20	total=98,99	unp=NO-UNP-LINE
+file_000_25.txt	hint=31	total=11,29	unp=ВМд13256-0013-0324559
+file_000_26.txt	hint=11	total=32,71	unp=NO-UNP-LINE
+file_000_27.txt	hint=15	total=59,41	unp=NO-UNP-LINE
+file_000_28.txt	hint=26	total=104,82	unp=NO-UNP-LINE
+file_000_29.txt	hint=31	total=238,81	unp=NO-UNP-LINE
+file_000_3.txt	hint=19	total=57,39	unp=NO-UNP-LINE
+file_000_30.txt	hint=38	total=122,96	unp=NO-UNP-LINE
+file_000_31.txt	hint=30	total=139,82	unp=NO-UNP-LINE
+file_000_32.txt	hint=23	total=111,05	unp=NO-UNP-LINE
+file_000_33.txt	hint=30	total=126,69	unp=NO-UNP-LINE
+file_000_34.txt	hint=25	total=104,29	unp=ВМд12762-0023-0445599
+file_000_35.txt	hint=31	total=109,31	unp=NO-UNP-LINE
+file_000_36.txt	hint=21	total=99,53	unp=NO-UNP-LINE
+file_000_37.txt	hint=17	total=72,28	unp=NO-UNP-LINE
+file_000_38.txt	hint=23	total=105,04	unp=NO-UNP-LINE
+file_000_39.txt	hint=?	total=132,54	unp=NO-UNP-LINE
+file_000_4.txt	hint=19	total=56,47	unp=NO-UNP-LINE
+file_000_40.txt	hint=?	total=15,17	unp=NO-UNP-LINE
+file_000_41.txt	hint=?	total=5,34	unp=NO-UNP-LINE
+file_000_42.txt	hint=20	total=94,18	unp=NO-UNP-LINE
+file_000_5.txt	hint=3	total=36,97	unp=NO-UNP-LINE
+file_000_6.txt	hint=15	total=49,41	unp=NO-UNP-LINE
+file_000_7.txt	hint=18	total=107,65	unp=NO-UNP-LINE
+file_000_8.txt	hint=15	total=79,46	unp=NO-UNP-LINE
+file_000_9.txt	hint=26	total=156,41	unp=NO-UNP-LINE
