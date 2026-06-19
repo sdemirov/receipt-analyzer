@@ -281,13 +281,15 @@ def receipt_detail(rid: int) -> dict:
 def receipt_pdf(rid: int):
     con = sqlite3.connect(DB_PATH)
     try:
-        row = con.execute("SELECT pdf FROM receipt_pdfs WHERE receipt_id = ?", (rid,)).fetchone()
+        row = con.execute(
+            "SELECT pdf, media_type FROM receipt_pdfs WHERE receipt_id = ?",
+            (rid,)).fetchone()
     finally:
         con.close()
     if not row or row[0] is None:
-        raise HTTPException(404, "pdf not found")
-    # inline so it renders inside the modal iframe instead of downloading
-    return Response(content=row[0], media_type="application/pdf",
+        raise HTTPException(404, "media not found")
+    media_type = row[1] or "application/pdf"
+    return Response(content=row[0], media_type=media_type,
                     headers={"Content-Disposition": "inline"})
 
 
