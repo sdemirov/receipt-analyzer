@@ -9,6 +9,7 @@ history and spending.
 | Doc | What's inside |
 |-----|---------------|
 | [usage.md](usage.md) | Install, run extraction, run the two apps, add new receipts |
+| [deployment.md](deployment.md) | Server install, rclone sync, hourly refresh, Lidl rename on Drive |
 | [architecture.md](architecture.md) | High-level design, data flow, components, file layout |
 | [extraction.md](extraction.md) | Receipt PDF format, the parser, every line type & edge case |
 | [data-model.md](data-model.md) | SQLite schema + the two editable CSV files |

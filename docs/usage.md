@@ -100,6 +100,24 @@ can't reach `127.0.0.1`, use `localhost` instead.
 3. Refresh the browser. The API reads the DB live (no restart needed); a renamed
    `display_name`, brand/category and other edits are preserved.
 
+### Lidl PNG filenames
+
+Lidl photos from a phone often arrive as `Файл_000.png` every time. The **Windows
+Google Drive client** auto-suffixes duplicates locally (`Файл_000 (1).png`, …), which
+is what the parser and tests expect.
+
+On a **server** using `rclone sync`, Google Drive can hold many distinct files that
+all share one name — sync keeps only one per path. [`deploy/refresh.sh`](../deploy/refresh.sh)
+runs [`tools/rename_lidl_pngs.py`](../tools/rename_lidl_pngs.py) before each sync to
+fix that automatically. See [deployment.md](deployment.md).
+
+To preview or run the rename manually (host: `rclone`, `openssl`, write-capable SA):
+
+```bash
+python3 -m tools.rename_lidl_pngs            # dry-run
+python3 -m tools.rename_lidl_pngs --apply    # rename on Drive, then build_db
+```
+
 ## 4b. Renaming PDFs to their receipt date
 
 `tools/rename_pdfs.py` renames each PDF to `YYYY-MM-DD.pdf` using the date parsed

@@ -158,3 +158,17 @@ inserting items, so a re-download never doubles a basket. Critically, the produc
 mapping is also built only from the kept receipts, keeping product counts consistent.
 For Lidl PNGs where the `УНП:` line was OCR-dropped, the filename is used as the
 dedup key (each PNG is a unique photo, so there are no true duplicates there).
+
+## Lidl PNG filenames on Google Drive
+
+Expected layout under `Lidl/`: `Файл_000.png`, `Файл_000 (1).png`, … (Windows Drive
+client suffixes phone uploads). The cloud copy can keep **duplicate display names**
+for many distinct files; `rclone sync` then keeps only one.
+
+[`tools/rename_lidl_pngs.py`](../tools/rename_lidl_pngs.py) lists PNGs via rclone,
+detects duplicate names, and renames in place through the Drive API (`files.update`,
+keyed by file ID). [`deploy/refresh.sh`](../deploy/refresh.sh) runs it automatically
+before each sync. Idempotent when names are already unique.
+
+Requirements on the server: `rclone`, `openssl`, service account with **Editor** on
+the folder. Details: [deployment.md](deployment.md).

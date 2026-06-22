@@ -77,6 +77,9 @@ queryable dataset and two UIs that answer:
   runs Kaufland extraction and all tests (which use pre-saved OCR text fixtures) fine
   without Tesseract. Run the full build with
   `docker compose run --rm app python -m extract.build_db`.
+- **Server: Drive → sync → DB.** Production uses `deploy/refresh.sh` (hourly via
+  systemd): Lidl PNG name dedupe on Drive → `rclone sync` → `build_db`. See
+  [deployment.md](deployment.md).
 - **Editable middle layer.** Item names have no barcode and are truncated, so
   product identity and brand/category are inherently fuzzy. Rather than hide
   that, the pipeline writes its best guess to CSV and lets you correct it; edits
@@ -100,7 +103,8 @@ extract/
   build_db.py          orchestrate -> receipts.db (+ product_meta.csv)
 api/main.py            FastAPI
 web/                   React + Vite + Recharts
-tools/rename_pdfs.py   rename PDFs to their receipt date
+tools/rename_pdfs.py   rename Kaufland PDFs to their receipt date
+tools/rename_lidl_pngs.py  dedupe Lidl PNG names on Google Drive (before rclone sync)
 tests/                 pytest suite (55 tests, host-runnable, no tesseract needed)
   fixtures/lidl_ocr/   43 pre-saved OCR-text fixtures for Lidl parser tests
 data/                  receipts.db, product_mapping.csv, product_meta.csv, unparsed_lines.log

@@ -33,6 +33,25 @@ lines, and extend the patterns in `extract/parse.py`
 `extract/parse_lidl.py` (`QTY_RE` / `ITEM_RE` / `DECOR_RE` for Lidl). See
 [extraction.md](extraction.md).
 
+## Lidl receipts missing on the server (only one PNG synced)
+
+**Symptom:** Local Windows folder has dozens of Lidl PNGs; production shows one (or
+few) Lidl receipts; `rclone sync` logs `Duplicate object found in source - ignoring`.
+
+**Cause:** Multiple files on Google Drive share the same name (e.g. all
+`Файл_000.png`). `rclone sync` maps one cloud path → one local path.
+
+**Fix:** Ensure [`deploy/refresh.sh`](../deploy/refresh.sh) runs before sync (it
+calls `tools.rename_lidl_pngs --apply`), or run that script manually, then
+`./deploy/refresh.sh`. The service account needs **Editor** on the DigitalReceipts
+folder. See [deployment.md](deployment.md).
+
+## `rename_lidl_pngs` fails with Drive 403
+
+The service account must be **Editor** (not Viewer) on the shared folder. The script
+renames in place via Drive `files.update` — it does **not** use `rclone moveto`
+(copy+delete), because the SA cannot delete user-owned originals.
+
 ## Lidl receipt parses 0 items
 OCR ran but the item-region anchors were not found.
 
