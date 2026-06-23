@@ -18,6 +18,7 @@ DATA_DIR.mkdir(exist_ok=True)
 DB_PATH = DATA_DIR / "receipts.db"
 MAPPING_CSV = DATA_DIR / "product_mapping.csv"
 PRODUCT_META_CSV = DATA_DIR / "product_meta.csv"  # editable brand/category per product
+CATEGORIES_CSV = DATA_DIR / "categories.csv"      # editable category names list
 UNPARSED_LOG = DATA_DIR / "unparsed_lines.log"
 
 # rapidfuzz similarity threshold (0-100) for grouping product name variants.

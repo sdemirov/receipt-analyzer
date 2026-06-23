@@ -13,9 +13,9 @@ import sys
 from collections import defaultdict
 from pathlib import Path
 
-from config import (BGN_PER_EUR, DB_PATH, MAPPING_CSV, PRODUCT_META_CSV,
+from config import (BGN_PER_EUR, CATEGORIES_CSV, DB_PATH, MAPPING_CSV, PRODUCT_META_CSV,
                     RECEIPTS_DIR, UNPARSED_LOG)
-from extract.categorize import guess_brand, guess_category
+from extract.categorize import CATEGORY_RULES, guess_brand, guess_category
 from extract.normalize import build_mapping, load_mapping, save_mapping
 from extract.parse import ParsedReceipt, parse_receipt
 from translit import search_key
@@ -157,6 +157,126 @@ def set_display_name(pid: int, display_name: str) -> None:
 
 def set_in_basket(pid: int, in_basket: bool) -> None:
     _set_meta_field(pid, "in_basket", "1" if in_basket else "")
+
+
+def clear_basket() -> int:
+    """Remove every product from the basket. Returns count cleared."""
+    with PRODUCT_META_CSV.open(encoding="utf-8", newline="") as fh:
+        rows = list(csv.DictReader(fh))
+    n = 0
+    for r in rows:
+        if str(r.get("in_basket", "") or "").strip() in ("1", "true", "True"):
+            r["in_basket"] = ""
+            n += 1
+    if n:
+        _write_meta(rows)
+    return n
+
+
+def _write_categories(names: list[str]) -> None:
+    with CATEGORIES_CSV.open("w", encoding="utf-8", newline="") as fh:
+        w = csv.DictWriter(fh, fieldnames=["name"])
+        w.writeheader()
+        for n in names:
+            w.writerow({"name": n})
+
+
+def seed_categories() -> list[str]:
+    """Build categories.csv from product_meta + default rules (first run only)."""
+    names: set[str] = {cat for cat, _ in CATEGORY_RULES}
+    if PRODUCT_META_CSV.exists():
+        with PRODUCT_META_CSV.open(encoding="utf-8", newline="") as fh:
+            for row in csv.DictReader(fh):
+                c = (row.get("category") or "").strip()
+                if c:
+                    names.add(c)
+    ordered = sorted(names, key=lambda s: s.lower())
+    _write_categories(ordered)
+    return ordered
+
+
+def load_categories() -> list[str]:
+    if not CATEGORIES_CSV.exists():
+        return seed_categories()
+    with CATEGORIES_CSV.open(encoding="utf-8", newline="") as fh:
+        return [(r.get("name") or "").strip() for r in csv.DictReader(fh)
+                if (r.get("name") or "").strip()]
+
+
+def _ensure_category_listed(name: str) -> None:
+    name = name.strip()
+    if not name:
+        return
+    names = load_categories()
+    if name not in names:
+        names.append(name)
+        names.sort(key=lambda s: s.lower())
+        _write_categories(names)
+
+
+def create_category(name: str) -> str:
+    name = name.strip()
+    if not name:
+        raise ValueError("empty category name")
+    names = load_categories()
+    if name in names:
+        return name
+    names.append(name)
+    names.sort(key=lambda s: s.lower())
+    _write_categories(names)
+    return name
+
+
+def rename_category(old_name: str, new_name: str) -> None:
+    old_name, new_name = old_name.strip(), new_name.strip()
+    if not old_name or not new_name:
+        raise ValueError("empty category name")
+    if old_name == new_name:
+        return
+    names = load_categories()
+    if old_name not in names:
+        raise KeyError(old_name)
+    if new_name in names:
+        raise ValueError("category already exists")
+    names = [new_name if n == old_name else n for n in names]
+    names.sort(key=lambda s: s.lower())
+    _write_categories(names)
+    with PRODUCT_META_CSV.open(encoding="utf-8", newline="") as fh:
+        rows = list(csv.DictReader(fh))
+    changed = False
+    for r in rows:
+        if (r.get("category") or "").strip() == old_name:
+            r["category"] = new_name
+            changed = True
+    if changed:
+        _write_meta(rows)
+
+
+def delete_category(name: str) -> int:
+    name = name.strip()
+    if not name:
+        raise ValueError("empty category name")
+    names = load_categories()
+    if name not in names:
+        raise KeyError(name)
+    _write_categories([n for n in names if n != name])
+    with PRODUCT_META_CSV.open(encoding="utf-8", newline="") as fh:
+        rows = list(csv.DictReader(fh))
+    n = 0
+    for r in rows:
+        if (r.get("category") or "").strip() == name:
+            r["category"] = ""
+            n += 1
+    if n:
+        _write_meta(rows)
+    return n
+
+
+def set_product_category(pid: int, category: str) -> None:
+    category = (category or "").strip()
+    if category:
+        _ensure_category_listed(category)
+    _set_meta_field(pid, "category", category)
 
 
 def apply_meta_to_db() -> int:

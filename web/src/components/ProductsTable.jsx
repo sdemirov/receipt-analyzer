@@ -80,7 +80,8 @@ export default function ProductsTable({ selectedIds, onToggleProduct }) {
           onChange={(e) => { setQuery(e.target.value); setPage(0); }}
         />
       </div>
-      <table className="receipts-table">
+      <div className="table-scroll">
+      <table className="receipts-table products-table">
         <thead>
           <tr>
             {COLS.map((c) => (
@@ -104,6 +105,7 @@ export default function ProductsTable({ selectedIds, onToggleProduct }) {
           )}
         </tbody>
       </table>
+      </div>
 
       {sorted.length > PAGE && (
         <div className="pager">

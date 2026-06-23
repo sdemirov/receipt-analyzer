@@ -3,10 +3,11 @@ import { api } from "./api.js";
 import PriceExplorer from "./components/PriceExplorer.jsx";
 import SpendDashboard from "./components/SpendDashboard.jsx";
 import RenameEditor from "./components/RenameEditor.jsx";
+import CategoryEditor from "./components/CategoryEditor.jsx";
 import ReceiptsList from "./components/ReceiptsList.jsx";
 import ProductsTable from "./components/ProductsTable.jsx";
 
-const TABS = ["prices", "spend", "receipts", "products", "rename"];
+const TABS = ["prices", "spend", "receipts", "products", "rename", "categories"];
 const tabFromHash = () => {
   const h = window.location.hash.replace(/^#\/?/, "");
   return TABS.includes(h) ? h : "prices";
@@ -75,6 +76,9 @@ export default function App() {
         <button className={tab === "rename" ? "active" : ""} onClick={() => go("rename")}>
           ✏️ Редакция
         </button>
+        <button className={tab === "categories" ? "active" : ""} onClick={() => go("categories")}>
+          🏷 Категории
+        </button>
       </nav>
 
       <main>
@@ -92,6 +96,7 @@ export default function App() {
             onToggleProduct={toggleProduct} />
         )}
         {tab === "rename" && <RenameEditor />}
+        {tab === "categories" && <CategoryEditor />}
       </main>
     </div>
   );

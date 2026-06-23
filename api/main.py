@@ -14,7 +14,17 @@ from fastapi.responses import Response
 from pydantic import BaseModel
 
 from config import DB_PATH, PRODUCT_META_CSV
-from extract.build_db import apply_meta_to_db, set_display_name, set_in_basket
+from extract.build_db import (
+    apply_meta_to_db,
+    clear_basket,
+    create_category,
+    delete_category,
+    load_categories,
+    rename_category,
+    set_display_name,
+    set_in_basket,
+    set_product_category,
+)
 from translit import search_key
 
 
@@ -24,6 +34,19 @@ class RenameBody(BaseModel):
 
 class BasketBody(BaseModel):
     in_basket: bool = False
+
+
+class CategoryBody(BaseModel):
+    name: str = ""
+
+
+class CategoryRenameBody(BaseModel):
+    old_name: str
+    new_name: str
+
+
+class ProductCategoryBody(BaseModel):
+    category: str = ""
 
 app = FastAPI(title="Digital Receipts Analyzer API")
 app.add_middleware(
@@ -135,6 +158,8 @@ def products_meta(search: str = "") -> list[dict]:
             in_basket = str(r.get("in_basket", "") or "").strip() in ("1", "true", "True")
             out.append({"product_id": int(r["product_id"]), "auto_name": auto,
                         "display_name": disp, "effective": disp or auto,
+                        "brand": r.get("brand", "") or "",
+                        "category": r.get("category", "") or "",
                         "in_basket": in_basket})
     out.sort(key=lambda x: x["effective"].lower())
     return out
@@ -161,6 +186,100 @@ def set_basket(pid: int, body: BasketBody) -> dict:
         raise HTTPException(404, "product not found")
     apply_meta_to_db()
     return {"product_id": pid, "in_basket": body.in_basket}
+
+
+@app.delete("/basket")
+def clear_basket_all() -> dict:
+    """Remove all products from the 'Потребителска кошница'."""
+    n = clear_basket()
+    apply_meta_to_db()
+    return {"cleared": n}
+
+
+@app.get("/categories")
+def list_categories() -> list[dict]:
+    names = load_categories()
+    counts = {
+        r["category"]: r["n"]
+        for r in q(
+            "SELECT category, COUNT(*) AS n FROM products "
+            "WHERE category <> '' GROUP BY category"
+        )
+    }
+    return [{"name": n, "products": counts.get(n, 0)} for n in names]
+
+
+@app.post("/categories")
+def add_category(body: CategoryBody) -> dict:
+    name = (body.name or "").strip()
+    if not name:
+        raise HTTPException(400, "name required")
+    try:
+        create_category(name)
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+    return {"name": name}
+
+
+@app.put("/categories/rename")
+def rename_category_route(body: CategoryRenameBody) -> dict:
+    try:
+        rename_category(body.old_name, body.new_name)
+    except KeyError:
+        raise HTTPException(404, "category not found")
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+    apply_meta_to_db()
+    return {"old_name": body.old_name, "new_name": body.new_name.strip()}
+
+
+@app.delete("/categories")
+def delete_category_route(name: str = Query(...)) -> dict:
+    name = name.strip()
+    if not name:
+        raise HTTPException(400, "name required")
+    try:
+        n = delete_category(name)
+    except KeyError:
+        raise HTTPException(404, "category not found")
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+    apply_meta_to_db()
+    return {"name": name, "cleared_products": n}
+
+
+@app.get("/categories/products")
+def category_products(
+    category: str = Query(...),
+    search: str = "",
+) -> list[dict]:
+    cat = category.strip()
+    if not cat:
+        raise HTTPException(400, "category required")
+    key = search_key(search)
+    rows = q(
+        """SELECT p.id AS product_id, p.canonical_name, p.brand, p.category
+           FROM products p
+           WHERE p.category = ?
+           ORDER BY p.canonical_name COLLATE NOCASE""",
+        (cat,),
+    )
+    if key:
+        rows = [r for r in rows if key in search_key(
+            f"{r['canonical_name']} {r.get('brand', '')}"
+        )]
+    return rows
+
+
+@app.put("/products/{pid}/category")
+def set_category(pid: int, body: ProductCategoryBody) -> dict:
+    try:
+        set_product_category(pid, body.category)
+    except KeyError:
+        raise HTTPException(404, "product not found")
+    apply_meta_to_db()
+    row = q("SELECT category FROM products WHERE id = ?", (pid,))
+    return {"product_id": pid, "category": row[0]["category"] if row else ""}
 
 
 @app.get("/basket")
@@ -211,37 +330,86 @@ def product_prices(
     return {"product": prod[0], "points": q(sql, tuple(params))}
 
 
+def _receipt_date_filter(
+    date_from: Optional[str], date_to: Optional[str], prefix: str = ""
+) -> tuple[str, list]:
+    col = f"{prefix}.purchase_date" if prefix else "purchase_date"
+    parts: list[str] = []
+    params: list = []
+    if date_from:
+        parts.append(f"{col} >= ?")
+        params.append(date_from)
+    if date_to:
+        parts.append(f"{col} <= ?")
+        params.append(date_to)
+    if not parts:
+        return "", []
+    return " WHERE " + " AND ".join(parts), params
+
+
 @app.get("/analytics/spend")
-def spend(by: str = "month") -> list[dict]:
+def spend(
+    by: str = "month",
+    date_from: Optional[str] = Query(None),
+    date_to: Optional[str] = Query(None),
+) -> list[dict]:
+    where_r, params_r = _receipt_date_filter(date_from, date_to)
+    where_li, params_li = _receipt_date_filter(date_from, date_to, "r")
+
     if by == "month":
         return q(
-            """SELECT substr(purchase_date, 1, 7) AS bucket,
+            f"""SELECT substr(purchase_date, 1, 7) AS bucket,
                       ROUND(SUM(total), 2)         AS spend,
                       COUNT(*)                     AS receipts
-               FROM receipts GROUP BY bucket ORDER BY bucket"""
+               FROM receipts{where_r} GROUP BY bucket ORDER BY bucket""",
+            tuple(params_r),
+        )
+    if by == "quarter":
+        return q(
+            f"""SELECT substr(purchase_date, 1, 4) || '-Q' ||
+                      CAST((CAST(substr(purchase_date, 6, 2) AS INTEGER) - 1) / 3 + 1 AS TEXT)
+                      AS bucket,
+                      ROUND(SUM(total), 2) AS spend,
+                      COUNT(*)             AS receipts
+               FROM receipts{where_r} GROUP BY bucket ORDER BY bucket""",
+            tuple(params_r),
+        )
+    if by == "year":
+        return q(
+            f"""SELECT substr(purchase_date, 1, 4) AS bucket,
+                      ROUND(SUM(total), 2)         AS spend,
+                      COUNT(*)                     AS receipts
+               FROM receipts{where_r} GROUP BY bucket ORDER BY bucket""",
+            tuple(params_r),
         )
     if by == "store":
         return q(
-            """SELECT branch_id AS bucket,
+            f"""SELECT branch_id AS bucket,
                       MAX(store_name) AS store_name,
                       ROUND(SUM(total), 2) AS spend,
                       COUNT(*) AS receipts
-               FROM receipts GROUP BY branch_id ORDER BY spend DESC"""
+               FROM receipts{where_r} GROUP BY branch_id ORDER BY spend DESC""",
+            tuple(params_r),
         )
     if by == "vat":
         return q(
-            """SELECT vat_class AS bucket,
-                      ROUND(SUM(line_total), 2) AS spend,
+            f"""SELECT li.vat_class AS bucket,
+                      ROUND(SUM(li.line_total), 2) AS spend,
                       COUNT(*) AS items
-               FROM line_items GROUP BY vat_class ORDER BY spend DESC"""
+               FROM line_items li JOIN receipts r ON r.id = li.receipt_id{where_li}
+               GROUP BY li.vat_class ORDER BY spend DESC""",
+            tuple(params_li),
         )
     if by == "product":
         return q(
-            """SELECT p.canonical_name AS bucket,
+            f"""SELECT p.canonical_name AS bucket,
                       ROUND(SUM(li.line_total), 2) AS spend,
                       COUNT(*) AS items
-               FROM line_items li JOIN products p ON p.id = li.product_id
-               GROUP BY p.id ORDER BY spend DESC LIMIT 30"""
+               FROM line_items li
+               JOIN products p ON p.id = li.product_id
+               JOIN receipts r ON r.id = li.receipt_id{where_li}
+               GROUP BY p.id ORDER BY spend DESC LIMIT 30""",
+            tuple(params_li),
         )
     if by in ("category", "brand"):
         col = "category" if by == "category" else "brand"
@@ -249,10 +417,16 @@ def spend(by: str = "month") -> list[dict]:
             f"""SELECT CASE WHEN p.{col}='' THEN '(няма)' ELSE p.{col} END AS bucket,
                        ROUND(SUM(li.line_total), 2) AS spend,
                        COUNT(*) AS items
-                FROM line_items li JOIN products p ON p.id = li.product_id
-                GROUP BY bucket ORDER BY spend DESC"""
+                FROM line_items li
+                JOIN products p ON p.id = li.product_id
+                JOIN receipts r ON r.id = li.receipt_id{where_li}
+                GROUP BY bucket ORDER BY spend DESC""",
+            tuple(params_li),
         )
-    raise HTTPException(400, "by must be one of: month, store, vat, product, category, brand")
+    raise HTTPException(
+        400,
+        "by must be one of: month, quarter, year, store, vat, product, category, brand",
+    )
 
 
 @app.get("/receipts/{rid}")

@@ -1,9 +1,11 @@
 import { useEffect, useRef, useState } from "react";
 import { api } from "../api.js";
+import { useIsNarrow } from "../useMedia.js";
 
 const VAT = { "А": "А", "Б": "Б", "Г": "Г" };
 
 export default function ReceiptModal({ rid, onClose, selectedIds = new Set(), onToggleProduct }) {
+  const narrow = useIsNarrow();
   const [data, setData] = useState(null);
   const [tab, setTab] = useState("items");
   const [error, setError] = useState(false);
@@ -37,6 +39,7 @@ export default function ReceiptModal({ rid, onClose, selectedIds = new Set(), on
     return () => { window.removeEventListener("mousemove", move); window.removeEventListener("mouseup", up); };
   }, []);
   const startDrag = (e) => {
+    if (narrow) return;
     drag.current = { on: true, sx: e.clientX, sy: e.clientY, bx: pos.x, by: pos.y };
     document.body.style.userSelect = "none";
   };
@@ -46,7 +49,8 @@ export default function ReceiptModal({ rid, onClose, selectedIds = new Set(), on
 
   return (
     <div className="modal-layer">
-      <div className="modal floating" style={{ transform: `translate(${pos.x}px, ${pos.y}px)` }}>
+      <div className={`modal${narrow ? " modal-mobile" : " floating"}`}
+        style={narrow ? undefined : { transform: `translate(${pos.x}px, ${pos.y}px)` }}>
         <button className="modal-close" onMouseDown={(e) => e.stopPropagation()} onClick={onClose}>×</button>
 
         {error && <div className="modal-body">Грешка при зареждане на бележката.</div>}
@@ -54,7 +58,8 @@ export default function ReceiptModal({ rid, onClose, selectedIds = new Set(), on
 
         {r && (
           <>
-            <div className="modal-head drag-handle" onMouseDown={startDrag} title="Премести (влачи)">
+            <div className="modal-head drag-handle" onMouseDown={startDrag}
+              title={narrow ? undefined : "Премести (влачи)"}>
               <h3>{r.store_name?.replace("Хипермаркет Кауфланд ", "") || "Бележка"}</h3>
               <div className="modal-meta">
                 <span>{r.purchase_date} {r.purchase_time}</span>
@@ -78,6 +83,7 @@ export default function ReceiptModal({ rid, onClose, selectedIds = new Set(), on
                   {onToggleProduct && (
                     <p className="items-hint">Кликни продукт, за да го добавиш/премахнеш в графиката.</p>
                   )}
+                  <div className="table-scroll">
                   <table className="items-table">
                     <thead>
                       <tr><th>Продукт</th><th>Кол.</th><th>Ед. цена</th><th>Сума</th><th>ДДС</th></tr>
@@ -103,6 +109,7 @@ export default function ReceiptModal({ rid, onClose, selectedIds = new Set(), on
                       })}
                     </tbody>
                   </table>
+                  </div>
                 </>
               )}
               {tab === "text" && <pre className="receipt-text">{data.text || "(няма текст)"}</pre>}

@@ -4,32 +4,23 @@ import {
 } from "recharts";
 import { api } from "../api.js";
 import ReceiptModal from "./ReceiptModal.jsx";
+import { useIsNarrow } from "../useMedia.js";
 
 const COLORS = [
   "#2a9d8f", "#0070b8", "#0a9d58", "#f39200", "#7b3fa0",
   "#00a3a3", "#c2185b", "#5d4037", "#455a64", "#afb42b",
 ];
 
-// Dot renderer: gold ringed marker on promo dates, small colored dot otherwise.
-// A larger transparent circle on top makes the point easy to click (opens the
-// receipt for that purchase).
+// Dot renderer: small colored dot; larger transparent hit area opens the receipt.
 function makeDot(pid, color, onPick) {
   return function Dot(props) {
     const { cx, cy, payload, index } = props;
     if (cx == null || cy == null || payload[pid] == null) return null;
     const rid = payload[`${pid}_rid`];
-    const marker = payload[`${pid}_promo`] ? (
-      <g>
-        <circle cx={cx} cy={cy} r={7} fill="#ffd400" stroke={color} strokeWidth={2} />
-        <text x={cx} y={cy + 3} textAnchor="middle" fontSize={9} fontWeight="700">%</text>
-      </g>
-    ) : (
-      <circle cx={cx} cy={cy} r={3} fill={color} />
-    );
     return (
       <g key={`dot-${pid}-${index}`} style={{ cursor: rid ? "pointer" : "default" }}
          onClick={() => rid && onPick(rid)}>
-        {marker}
+        <circle cx={cx} cy={cy} r={3} fill={color} />
         <circle cx={cx} cy={cy} r={11} fill="transparent" />
       </g>
     );
@@ -42,7 +33,6 @@ function PriceTooltip({ active, payload, label, names }) {
     <div className="tooltip">
       <div className="tt-date">{label}</div>
       {payload.map((s) => {
-        const promo = s.payload[`${s.dataKey}_promo`];
         const store = s.payload[`${s.dataKey}_store`];
         const kg = s.payload[`${s.dataKey}_kg`];
         return (
@@ -51,11 +41,6 @@ function PriceTooltip({ active, payload, label, names }) {
             <span>{names[s.dataKey]}: <b>{Number(s.value).toFixed(2)} €</b></span>
             {kg && <span className="tt-store">{kg.qty} кг @ {kg.perKg.toFixed(2)} €/кг</span>}
             {store && <span className="tt-store">🏬 {store.replace("Хипермаркет ", "")}</span>}
-            {promo && (
-              <span className="tt-promo">
-                🏷 промоция −{promo.saving.toFixed(2)} € (редовна {promo.regular.toFixed(2)} €)
-              </span>
-            )}
           </div>
         );
       })}
@@ -64,6 +49,7 @@ function PriceTooltip({ active, payload, label, names }) {
 }
 
 export default function PriceExplorer({ selected, setSelected, hidden, setHidden, toggle }) {
+  const narrow = useIsNarrow();
   const [search, setSearch] = useState("");
   const [products, setProducts] = useState([]);
   const [series, setSeries] = useState({});      // id -> points[]
@@ -73,11 +59,17 @@ export default function PriceExplorer({ selected, setSelected, hidden, setHidden
   const [category, setCategory] = useState("");
   const [filters, setFilters] = useState({ from: "", to: "", branch: "" });
   const [openRid, setOpenRid] = useState(null);
+  const [basketItems, setBasketItems] = useState([]);
   const debounce = useRef();
+
+  function loadBasket() {
+    api.basket().then(setBasketItems).catch(() => setBasketItems([]));
+  }
 
   useEffect(() => {
     api.branches().then(setBranches).catch(() => {});
     api.facets().then(setFacets).catch(() => {});
+    loadBasket();
   }, []);
 
   useEffect(() => {
@@ -114,14 +106,29 @@ export default function PriceExplorer({ selected, setSelected, hidden, setHidden
 
   function showBasket() {
     api.basket()
-      .then((items) => setSelected(items.map((p) => ({
-        id: p.id, canonical_name: p.canonical_name, unit_measure: p.unit_measure,
-      }))))
+      .then((items) => {
+        setBasketItems(items);
+        setSelected(items.map((p) => ({
+          id: p.id, canonical_name: p.canonical_name, unit_measure: p.unit_measure,
+        })));
+      })
       .catch(() => {});
   }
 
-  // Merge each product's points into one array keyed by date. Promo info for a
-  // (date, product) is stored under "<id>_promo" for the dot + tooltip.
+  async function removeFromBasket(id) {
+    await api.setBasket(id, false);
+    setBasketItems((items) => items.filter((p) => p.id !== id));
+    setSelected((cur) => cur.filter((p) => p.id !== id));
+  }
+
+  async function clearBasket() {
+    await api.clearBasket();
+    setBasketItems([]);
+    setSelected([]);
+    setHidden(new Set());
+  }
+
+  // Merge each product's points into one array keyed by date.
   const chartData = useMemo(() => {
     const byDate = new Map();
     for (const p of selected) {
@@ -135,7 +142,6 @@ export default function PriceExplorer({ selected, setSelected, hidden, setHidden
         row[`${p.id}_rid`] = pt.receipt_id;
         row[`${p.id}_store`] = pt.store_name;
         if (kg) row[`${p.id}_kg`] = { qty: pt.qty, perKg: pt.unit_price };
-        if (pt.on_promo) row[`${p.id}_promo`] = { saving: pt.promo_saving, regular: pt.regular_price };
       }
     }
     return [...byDate.values()].sort((a, b) => a.date.localeCompare(b.date));
@@ -172,13 +178,29 @@ export default function PriceExplorer({ selected, setSelected, hidden, setHidden
         </div>
         <div className="basket-row">
           <button className="basket-btn" onClick={showBasket}>🧺 Покажи кошницата</button>
+          {basketItems.length > 0 && (
+            <button className="basket-btn clear" onClick={clearBasket}>
+              🧺 Изчисти кошницата ({basketItems.length})
+            </button>
+          )}
           {selected.length > 0 && (
             <button className="basket-btn clear"
               onClick={() => { setSelected([]); setHidden(new Set()); }}>
-              ✕ Изчисти ({selected.length})
+              ✕ Изчисти избора ({selected.length})
             </button>
           )}
         </div>
+        {basketItems.length > 0 && (
+          <ul className="basket-list">
+            {basketItems.map((p) => (
+              <li key={p.id}>
+                <span className="basket-list-name">{p.canonical_name}</span>
+                <button type="button" className="basket-list-remove" title="Премахни от кошницата"
+                  onClick={() => removeFromBasket(p.id)}>×</button>
+              </li>
+            ))}
+          </ul>
+        )}
         <p className="hint">По подразбиране се показват продукти с ≥2 дати; търсене/филтър намира всички (вкл. еднократни покупки).</p>
         <ul className="product-list">
           {products.map((p) => {
@@ -221,9 +243,8 @@ export default function PriceExplorer({ selected, setSelected, hidden, setHidden
           <div className="placeholder">Избери продукт отляво, за да видиш цената му във времето.</div>
         ) : (
           <>
-            <p className="promo-hint">
-              <b>Кликни върху точка</b>, за да видиш бележката за тази покупка. Точките с
-              <b> жълт маркер „%"</b> са в промоция.
+            <p className="chart-hint">
+              <b>Кликни върху точка</b>, за да видиш бележката за тази покупка.
             </p>
             <div className="chips">
               {selected.map((p, i) => (
@@ -237,14 +258,14 @@ export default function PriceExplorer({ selected, setSelected, hidden, setHidden
                 </span>
               ))}
             </div>
-            <ResponsiveContainer width="100%" height={460}>
-              <LineChart data={chartData} margin={{ top: 10, right: 20, bottom: 10, left: 0 }}>
+            <ResponsiveContainer width="100%" height={narrow ? 300 : 460}>
+              <LineChart data={chartData} margin={{ top: 10, right: 8, bottom: 0, left: narrow ? 4 : 0 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#eee" />
-                <XAxis dataKey="date" tick={{ fontSize: 12 }} minTickGap={24} />
-                <YAxis tick={{ fontSize: 12 }} width={48}
+                <XAxis dataKey="date" tick={{ fontSize: narrow ? 10 : 12 }} minTickGap={narrow ? 32 : 24} />
+                <YAxis tick={{ fontSize: narrow ? 10 : 12 }} width={narrow ? 40 : 48}
                   label={{ value: "€", angle: -90, position: "insideLeft", fontSize: 12 }} />
                 <Tooltip content={<PriceTooltip names={nameById} />} />
-                <Legend />
+                {!narrow && <Legend />}
                 {selected.map((p, i) => (
                   hidden.has(p.id) ? null : (
                   <Line key={p.id} type="monotone" dataKey={String(p.id)} name={p.canonical_name}

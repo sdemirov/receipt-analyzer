@@ -99,6 +99,34 @@ def _norm_unp(raw: str) -> str:
     return v
 
 
+# Multipack qty line: integer piece count with ",000" / ",00" suffix (2,000 = 2 pcs).
+_PIECE_QTY_RE = re.compile(
+    r"^[\dдй@]+\s*,\s*0{2,3}\s*$", re.I)
+
+
+def _is_piece_qty_line(raw_qty: str) -> bool:
+    """True for Lidl multipack lines like ``2,000 x 0,97`` (not kg weights)."""
+    return bool(_PIECE_QTY_RE.match(raw_qty.strip()))
+
+
+def _line_item_from_qty(name: str, amt: float, vat: str,
+                        pending: tuple[float, float, str]) -> LineItem:
+    """Build a LineItem from a pending qty line + following name/amount line."""
+    qty, unit, raw_qty = pending
+    if _is_piece_qty_line(raw_qty):
+        piece_qty = max(1, int(round(qty)))
+        if abs(piece_qty * unit - amt) > 0.02:
+            unit = round(amt / piece_qty, 2)
+        return LineItem(name, piece_qty, unit, amt, vat)
+    # Weighed (or ambiguous): amount and unit price are reliable; qty/weight often
+    # isn't (e.g. leading 0 misread as 8: "8,265 x 16,31" -> "0,265").
+    if unit and abs(qty * unit - amt) > 0.02:
+        qty = amt / unit
+    if unit and abs(qty - round(qty)) > 0.02:
+        return LineItem(name, round(qty, 3), unit, amt, vat, unit_measure="kg")
+    return LineItem(name, int(round(qty)) or 1, unit, amt, vat)
+
+
 def _fix_month(mm: str) -> Optional[str]:
     """Return a valid 2-digit month or None. OCR often misreads the leading 0 of a
     single-digit month (01-09) as 8/9/6 on thermal print ('09'->'89'). When the
@@ -177,7 +205,7 @@ def parse_lidl_text(text: str, source: str) -> ParsedReceipt:
             end = i
             break
 
-    pending: Optional[tuple[float, float]] = None
+    pending: Optional[tuple[float, float, str]] = None
     for line in lines[start + 1:end]:
         if not line:
             continue                       # blank: keep pending (qty -> blank -> item)
@@ -187,7 +215,7 @@ def parse_lidl_text(text: str, source: str) -> ParsedReceipt:
             pending = None                 # promo/discount: not an item, drop pairing
             continue
         if m := QTY_RE.match(line):
-            pending = (_money(m.group("qty")), _money(m.group("unit")))
+            pending = (_money(m.group("qty")), _money(m.group("unit")), m.group("qty"))
             continue
         if m := ITEM_RE.match(line):
             amt = _money(m.group("amt"))
@@ -195,20 +223,7 @@ def parse_lidl_text(text: str, source: str) -> ParsedReceipt:
             name = CODE_TAIL_RE.sub("", m.group("name"))
             name = _sanitize_name(name).strip(' "\'')
             if pending:
-                qty, unit = pending
-                # The printed amount (line total) and unit price are the reliable
-                # OCR fields; the qty/weight often isn't (e.g. a weight's leading 0
-                # is misread as 8: "8,265 x 16,31" should be "0,265"). Recompute the
-                # quantity from amount/unit when the printed qty is inconsistent.
-                if unit and abs(qty * unit - amt) > 0.02:
-                    qty = amt / unit
-                # A whole-number quantity is a piece count; a fractional one is a
-                # weighed item in kg (unit is then the price per kg).
-                if unit and abs(qty - round(qty)) > 0.02:
-                    r.items.append(LineItem(name, round(qty, 3), unit, amt, vat,
-                                            unit_measure="kg"))
-                else:
-                    r.items.append(LineItem(name, int(round(qty)) or 1, unit, amt, vat))
+                r.items.append(_line_item_from_qty(name, amt, vat, pending))
             else:
                 r.items.append(LineItem(name, 1, amt, amt, vat))
             pending = None

@@ -33,3 +33,25 @@ def test_item_count_matches_checksum():
     r = _parsed()
     assert r.item_count_hint == 3
     assert len(r.items) == r.item_count_hint
+
+
+def test_multipack_unit_price_corrected_when_ocr_mismatches_total():
+    """2,000 x 2,75 paired with line total 5,90 is 2 pcs (not 2.145 kg): the unit
+    on the qty line was OCR'd wrong but the piece count format ,000 is trusted."""
+    text = """#Каса:4 Касиер :28 #
+# BGN #
+ГЕРБЕРИ БУКЕТ 7,99 В
+2,000 x 2,75
+
+БИО КИСЕЛО МЛЯКО 3,6 5,90 В
+МЕЖДИННА СУМА 5,90
+ОБЩА СУМА 5,90
+#29/11/23 17:31:16#
+"""
+    r = parse_lidl_text(text, "test.png")
+    milk = r.items[-1]
+    assert milk.raw_name == "БИО КИСЕЛО МЛЯКО 3,6"
+    assert milk.qty == 2
+    assert milk.unit_price == 2.95
+    assert milk.line_total == 5.90
+    assert milk.unit_measure == "pc"

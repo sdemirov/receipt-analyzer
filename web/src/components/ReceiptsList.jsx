@@ -20,17 +20,26 @@ export default function ReceiptsList({ selectedIds, onToggleProduct }) {
   const [openRid, setOpenRid] = useState(null);
   const [sort, setSort] = useState({ key: "date", dir: "desc" });
   const [storeQuery, setStoreQuery] = useState("");
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
 
   useEffect(() => {
     api.receipts().then(setRows).catch(() => setRows([]));
   }, []);
 
   const filtered = useMemo(() => {
+    let out = rows;
+    if (dateFrom) out = out.filter((r) => r.purchase_date >= dateFrom);
+    if (dateTo) out = out.filter((r) => r.purchase_date <= dateTo);
     const q = storeQuery.trim().toLowerCase();
-    if (!q) return rows;
-    return rows.filter((r) =>
-      `${r.store_name || ""} ${r.branch_id || ""}`.toLowerCase().includes(q));
-  }, [rows, storeQuery]);
+    if (q) {
+      out = out.filter((r) =>
+        `${r.store_name || ""} ${r.branch_id || ""}`.toLowerCase().includes(q));
+    }
+    return out;
+  }, [rows, storeQuery, dateFrom, dateTo]);
+
+  const hasFilter = !!(storeQuery.trim() || dateFrom || dateTo);
 
   const sorted = useMemo(() => {
     const c = COLS.find((c) => c.key === sort.key);
@@ -56,18 +65,34 @@ export default function ReceiptsList({ selectedIds, onToggleProduct }) {
     <div className="panel receipts">
       <div className="receipts-head">
         <p className="hint">
-          {storeQuery.trim()
+          {hasFilter
             ? `${filtered.length} от ${rows.length} бележки`
-            : `Всички бележки (${rows.length})`}. Кликни заглавие, за да сортираш · ред, за да видиш продукти / текст / PDF.
+            : `Всички бележки (${rows.length})`}
+          . Кликни заглавие, за да сортираш · ред, за да видиш продукти / текст / PDF.
         </p>
-        <input
-          className="store-filter"
-          type="search"
-          placeholder="Филтър по магазин… (напр. Лидл)"
-          value={storeQuery}
-          onChange={(e) => { setStoreQuery(e.target.value); setPage(0); }}
-        />
+        <div className="receipts-filters">
+          <div className="filters">
+            <label>
+              От
+              <input type="date" value={dateFrom}
+                onChange={(e) => { setDateFrom(e.target.value); setPage(0); }} />
+            </label>
+            <label>
+              До
+              <input type="date" value={dateTo}
+                onChange={(e) => { setDateTo(e.target.value); setPage(0); }} />
+            </label>
+          </div>
+          <input
+            className="store-filter"
+            type="search"
+            placeholder="Филтър по магазин… (напр. Лидл)"
+            value={storeQuery}
+            onChange={(e) => { setStoreQuery(e.target.value); setPage(0); }}
+          />
+        </div>
       </div>
+      <div className="table-scroll">
       <table className="receipts-table">
         <thead>
           <tr>
@@ -94,11 +119,12 @@ export default function ReceiptsList({ selectedIds, onToggleProduct }) {
           })}
           {sorted.length === 0 && (
             <tr><td colSpan={6} className="muted">
-              {rows.length === 0 ? "Няма бележки" : "Няма съвпадения за този магазин"}
+              {rows.length === 0 ? "Няма бележки" : "Няма съвпадения за избраните филтри"}
             </td></tr>
           )}
         </tbody>
       </table>
+      </div>
 
       {sorted.length > PAGE && (
         <div className="pager">
